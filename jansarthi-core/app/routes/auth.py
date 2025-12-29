@@ -15,7 +15,7 @@ from app.schemas.auth import (
     VerifyOTPRequest,
 )
 from app.services.auth import AuthService, get_current_user
-from app.services.twilio import get_twilio_service, normalize_phone_number
+from app.services.twilio import get_otp_service, normalize_phone_number
 from app.settings.config import get_settings
 
 settings = get_settings()
@@ -66,30 +66,27 @@ async def signup(
     session.commit()
     session.refresh(new_user)
     
-    # Generate and send OTP
-    twilio_service = get_twilio_service()
-    otp_code = twilio_service.generate_otp()
+    # Send OTP via 2Factor API (generates and sends automatically)
+    otp_service = get_otp_service()
+    sms_sent, session_id = otp_service.send_otp(normalized_number)
     
-    # Save OTP to database
+    if not sms_sent or not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send OTP. Please try again."
+        )
+    
+    # Save OTP session to database
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
     otp_record = OTP(
         mobile_number=normalized_number,
-        otp_code=otp_code,
+        session_id=session_id,
         expires_at=expires_at,
         is_used=False
     )
     
     session.add(otp_record)
     session.commit()
-    
-    # Send OTP via SMS (twilio service will normalize again, but that's ok)
-    sms_sent = twilio_service.send_otp(normalized_number, otp_code)
-    
-    if not sms_sent:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
-        )
     
     return OTPResponse(
         message="OTP sent successfully to your mobile number",
@@ -134,30 +131,27 @@ async def login(
             detail="Your account has been deactivated. Please contact support."
         )
     
-    # Generate and send OTP
-    twilio_service = get_twilio_service()
-    otp_code = twilio_service.generate_otp()
+    # Send OTP via 2Factor API (generates and sends automatically)
+    otp_service = get_otp_service()
+    sms_sent, session_id = otp_service.send_otp(normalized_number)
     
-    # Save OTP to database
+    if not sms_sent or not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send OTP. Please try again."
+        )
+    
+    # Save OTP session to database
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
     otp_record = OTP(
         mobile_number=normalized_number,
-        otp_code=otp_code,
+        session_id=session_id,
         expires_at=expires_at,
         is_used=False
     )
     
     session.add(otp_record)
     session.commit()
-    
-    # Send OTP via SMS
-    sms_sent = twilio_service.send_otp(normalized_number, otp_code)
-    
-    if not sms_sent:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
-        )
     
     return OTPResponse(
         message="OTP sent successfully to your mobile number",
@@ -225,8 +219,11 @@ async def verify_otp(
             detail="Too many failed attempts. Please request a new OTP."
         )
     
-    # Verify OTP
-    if otp_record.otp_code != verify_data.otp_code:
+    # Verify OTP via 2Factor API
+    otp_service = get_otp_service()
+    is_valid = otp_service.verify_otp(otp_record.session_id, verify_data.otp_code)
+    
+    if not is_valid:
         otp_record.attempt_count += 1
         session.add(otp_record)
         session.commit()
@@ -244,10 +241,6 @@ async def verify_otp(
     # Mark user as verified if first time
     if not user.is_verified:
         user.is_verified = True
-        
-        # Send welcome message
-        twilio_service = get_twilio_service()
-        twilio_service.send_welcome_message(user.mobile_number, user.name)
     
     session.add(otp_record)
     session.add(user)
@@ -357,30 +350,27 @@ async def resend_otp(
             detail="User not found"
         )
     
-    # Generate and send new OTP
-    twilio_service = get_twilio_service()
-    otp_code = twilio_service.generate_otp()
+    # Send OTP via 2Factor API (generates and sends automatically)
+    otp_service = get_otp_service()
+    sms_sent, session_id = otp_service.send_otp(normalized_number)
     
-    # Save OTP to database
+    if not sms_sent or not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send OTP. Please try again."
+        )
+    
+    # Save OTP session to database
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
     otp_record = OTP(
         mobile_number=normalized_number,
-        otp_code=otp_code,
+        session_id=session_id,
         expires_at=expires_at,
         is_used=False
     )
     
     session.add(otp_record)
     session.commit()
-    
-    # Send OTP via SMS
-    sms_sent = twilio_service.send_otp(normalized_number, otp_code)
-    
-    if not sms_sent:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
-        )
     
     return OTPResponse(
         message="New OTP sent successfully",

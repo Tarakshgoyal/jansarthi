@@ -26,6 +26,7 @@ export interface Translations {
   // Map
   map: {
     loadingLocation: Translation;
+    loadingAddress: Translation;
     permissionDenied: Translation;
     locationError: Translation;
     enableLocationInstructions: Translation;
@@ -334,6 +335,10 @@ export const translations: Translations = {
     loadingLocation: {
       en: "Loading your location...",
       hi: "आपका स्थान लोड हो रहा है...",
+    },
+    loadingAddress: {
+      en: "Loading address...",
+      hi: "पता लोड हो रहा है...",
     },
     permissionDenied: {
       en: "Location permission denied",

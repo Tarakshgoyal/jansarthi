@@ -181,7 +181,7 @@ class OTP(SQLModel, table=True):
     
     id: Optional[int] = Field(default=None, primary_key=True)
     mobile_number: str = Field(index=True, max_length=15)
-    otp_code: str = Field(max_length=6)
+    session_id: str = Field(max_length=100)  # 2Factor.in session ID for OTP verification
     
     # OTP metadata
     is_used: bool = Field(default=False)

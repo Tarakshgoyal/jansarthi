@@ -1,8 +1,8 @@
-"""Initial Migration
+"""initial_migration
 
-Revision ID: 559594138120
+Revision ID: a7822be39ba6
 Revises: 
-Create Date: 2025-12-09 19:33:32.363594
+Create Date: 2025-12-29 14:04:34.283684
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = '559594138120'
+revision: str = 'a7822be39ba6'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -25,7 +25,7 @@ def upgrade() -> None:
     op.create_table('otps',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('mobile_number', sqlmodel.sql.sqltypes.AutoString(length=15), nullable=False),
-    sa.Column('otp_code', sqlmodel.sql.sqltypes.AutoString(length=6), nullable=False),
+    sa.Column('session_id', sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
     sa.Column('is_used', sa.Boolean(), nullable=False),
     sa.Column('attempt_count', sa.Integer(), nullable=False),
     sa.Column('expires_at', sa.DateTime(timezone=True), nullable=False),
