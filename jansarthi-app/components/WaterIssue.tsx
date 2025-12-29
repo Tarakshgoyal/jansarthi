@@ -90,8 +90,6 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
-        ward_id: selectedWard.id,
-        ward_name: language === "hi" ? selectedWard.nameHindi : selectedWard.name,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 

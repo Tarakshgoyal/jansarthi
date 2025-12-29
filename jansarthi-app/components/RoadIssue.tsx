@@ -36,7 +36,6 @@ const RoadIssue: React.FC<RoadIssueProps> = () => {
   const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [wardError, setWardError] = useState<string | null>(null);
 
   const handleLocationChange = (coords: LocationCoords) => {
     setLocation(coords);
@@ -48,16 +47,11 @@ const RoadIssue: React.FC<RoadIssueProps> = () => {
     console.log("Road Issue Photos:", newPhotos);
   };
 
-  const handleWardSelect = (ward: Ward) => {
-    setSelectedWard(ward);
-    setWardError(null);
-    console.log("Road Issue Ward:", ward);
-  };
+
 
   const handleSubmit = async () => {
     try {
       setError(null);
-      setWardError(null);
 
       // Validate form
       if (!description.trim()) {
@@ -67,11 +61,6 @@ const RoadIssue: React.FC<RoadIssueProps> = () => {
 
       if (!location) {
         setError(language === "hi" ? "कृपया मानचित्र पर स्थान चुनें" : "Please select a location on the map");
-        return;
-      }
-
-      if (!selectedWard) {
-        setWardError(language === "hi" ? "कृपया अपना वार्ड चुनें" : "Please select your ward");
         return;
       }
 
@@ -90,8 +79,6 @@ const RoadIssue: React.FC<RoadIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
-        ward_id: selectedWard.id,
-        ward_name: language === "hi" ? selectedWard.nameHindi : selectedWard.name,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 

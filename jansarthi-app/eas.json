@@ -8,8 +8,13 @@
       "developmentClient": true,
       "distribution": "internal"
     },
-    "preview": {
-      "distribution": "internal"
+   "preview": {
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://jansarthi.rustedshader.com"
+      }
     },
     "production": {
       "autoIncrement": true

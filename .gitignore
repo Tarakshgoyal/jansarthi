@@ -3,3 +3,4 @@ data/
 .env.example
 .idea
 .vscode
+.DS_Store
