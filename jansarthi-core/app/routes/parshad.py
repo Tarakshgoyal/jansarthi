@@ -311,6 +311,51 @@ async def get_in_progress_issues(
 
 
 @parshad_router.get(
+    "/issues/pending-review",
+    response_model=AdminIssueListResponse,
+    summary="Get issues pending Parshad review",
+)
+async def get_pending_review_issues(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    parshad_user: User = Depends(get_parshad_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Get issues where PWD has completed work and waiting for Parshad review.
+    
+    These are issues with status = PWD_COMPLETED.
+    """
+    parshad_id = parshad_user.id
+    
+    query = select(Issue).where(
+        Issue.assigned_parshad_id == parshad_id,
+        Issue.status == IssueStatus.PWD_COMPLETED
+    )
+    count_query = select(func.count(Issue.id)).where(
+        Issue.assigned_parshad_id == parshad_id,
+        Issue.status == IssueStatus.PWD_COMPLETED
+    )
+    
+    total = session.exec(count_query).one()
+    
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size).order_by(Issue.updated_at.desc())
+    
+    issues = session.exec(query).all()
+    items = [build_issue_response(issue, session) for issue in issues]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+    
+    return AdminIssueListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@parshad_router.get(
     "/issues/{issue_id}",
     response_model=AdminIssueResponse,
     summary="Get issue details",
@@ -608,7 +653,8 @@ async def acknowledge_issue(
 @parshad_router.post(
     "/issues/{issue_id}/start-work",
     response_model=AdminIssueResponse,
-    summary="Start working on an issue",
+    summary="[DEPRECATED] Start working on an issue",
+    deprecated=True,
 )
 async def start_work(
     issue_id: int,
@@ -617,10 +663,17 @@ async def start_work(
     session: Session = Depends(get_session),
 ):
     """
-    Quick action to mark that work has started on an issue.
+    DEPRECATED: This endpoint is deprecated. PWD workers now handle work on issues.
+    Use the PWD worker endpoints instead: /api/pwd/issues/{issue_id}/start-work
     
+    Previously: Quick action to mark that work has started on an issue.
     Changes status from PARSHAD_CHECK to STARTED_WORKING.
     """
+    raise HTTPException(
+        status_code=http_status.HTTP_410_GONE,
+        detail="This endpoint is deprecated. Work on issues is now handled by PWD workers. Use /api/pwd/issues/{issue_id}/start-work instead."
+    )
+    # Legacy code below - no longer executed
     issue = session.get(Issue, issue_id)
     
     if not issue:
@@ -664,7 +717,8 @@ async def start_work(
 @parshad_router.post(
     "/issues/{issue_id}/complete",
     response_model=AdminIssueResponse,
-    summary="Mark issue as completed",
+    summary="[DEPRECATED] Mark issue as completed",
+    deprecated=True,
 )
 async def complete_issue(
     issue_id: int,
@@ -673,10 +727,18 @@ async def complete_issue(
     session: Session = Depends(get_session),
 ):
     """
-    Quick action to mark an issue as completed.
+    DEPRECATED: This endpoint is deprecated. PWD workers now complete work on issues.
+    Use the PWD worker endpoints instead: /api/pwd/issues/{issue_id}/complete-work
+    Parshads should use the review endpoint: /api/parshad/issues/{issue_id}/review
     
+    Previously: Quick action to mark an issue as completed.
     Changes status from STARTED_WORKING to FINISHED_WORK.
     """
+    raise HTTPException(
+        status_code=http_status.HTTP_410_GONE,
+        detail="This endpoint is deprecated. Work completion is now handled by PWD workers. Use /api/pwd/issues/{issue_id}/complete-work instead. For final review, use /api/parshad/issues/{issue_id}/review."
+    )
+    # Legacy code below - no longer executed
     issue = session.get(Issue, issue_id)
     
     if not issue:
@@ -774,48 +836,3 @@ async def review_issue(
     session.refresh(issue)
     
     return build_issue_response(issue, session)
-
-
-@parshad_router.get(
-    "/issues/pending-review",
-    response_model=AdminIssueListResponse,
-    summary="Get issues pending Parshad review",
-)
-async def get_pending_review_issues(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
-    parshad_user: User = Depends(get_parshad_user),
-    session: Session = Depends(get_session),
-):
-    """
-    Get issues where PWD has completed work and waiting for Parshad review.
-    
-    These are issues with status = PWD_COMPLETED.
-    """
-    parshad_id = parshad_user.id
-    
-    query = select(Issue).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status == IssueStatus.PWD_COMPLETED
-    )
-    count_query = select(func.count(Issue.id)).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status == IssueStatus.PWD_COMPLETED
-    )
-    
-    total = session.exec(count_query).one()
-    
-    offset = (page - 1) * page_size
-    query = query.offset(offset).limit(page_size).order_by(Issue.updated_at.desc())
-    
-    issues = session.exec(query).all()
-    items = [build_issue_response(issue, session) for issue in issues]
-    total_pages = math.ceil(total / page_size) if total > 0 else 1
-    
-    return AdminIssueListResponse(
-        items=items,
-        total=total,
-        page=page,
-        page_size=page_size,
-        total_pages=total_pages,
-    )

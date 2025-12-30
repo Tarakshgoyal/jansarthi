@@ -272,9 +272,13 @@ export const PWDWorkerDashboard: React.FC = () => {
           </VStack>
           <HStack space="sm" className="items-center">
             <LanguageSwitcher />
-            <Box className="bg-amber-500 rounded-full p-2">
-              <HardHat size={24} color="#fff" />
-            </Box>
+            <Pressable
+              onPress={() => router.push('/(app)/profile')}
+              className="border border-white/20 rounded-full p-2 bg-amber-500 active:opacity-70"
+              style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <User size={24} color="#fff" />
+            </Pressable>
           </HStack>
         </HStack>
       </View>

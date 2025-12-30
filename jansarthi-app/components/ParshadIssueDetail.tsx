@@ -348,12 +348,9 @@ export const ParshadIssueDetail: React.FC = () => {
   const Icon = getIssueTypeIcon(issue.issue_type);
   const statusColors = getStatusColor(issue.status);
 
-  // New flow: Parshad can only acknowledge and review (not start/complete work)
+  // New flow: Parshad can only acknowledge and review (PWD workers handle the actual work)
   const canAcknowledge = issue.status === "assigned";
   const canReview = issue.status === "pwd_completed";
-  // Legacy support
-  const canStartWork = issue.status === "parshad_check" || issue.status === "parshad_acknowledged";
-  const canComplete = issue.status === "started_working" || issue.status === "pwd_working";
 
   return (
     <View className="flex-1 bg-background-50">
@@ -471,106 +468,10 @@ export const ParshadIssueDetail: React.FC = () => {
             </Box>
           </View>
         )}
-
-        {/* Update Form (for completion with photos) */}
-        {showUpdateForm && canComplete && (
-          <View className="px-4 mt-4">
-            <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
-              <Heading size="md" className="text-typography-900 mb-4">
-                {getText(t.parshad.issues.markComplete)}
-              </Heading>
-
-              {/* Progress Notes */}
-              <VStack space="xs" className="mb-4">
-                <Text className="text-typography-700 font-medium">
-                  {getText(t.parshad.issueDetail.addProgressNote)}
-                </Text>
-                <Textarea>
-                  <TextareaInput
-                    placeholder={getText(t.parshad.issueDetail.progressNotePlaceholder)}
-                    value={progressNotes}
-                    onChangeText={setProgressNotes}
-                    className="bg-background-50"
-                  />
-                </Textarea>
-              </VStack>
-
-              {/* Photo Attachment */}
-              <VStack space="sm" className="mb-4">
-                <Text className="text-typography-700 font-medium">
-                  {getText(t.parshad.issueDetail.attachPhotos)} *
-                </Text>
-                <Text className="text-typography-500 text-sm">
-                  {getText(t.parshad.issueDetail.attachPhotosDesc)}
-                </Text>
-
-                {/* Selected Photos */}
-                {selectedPhotos.length > 0 && (
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                    <HStack space="sm" className="py-2">
-                      {selectedPhotos.map((uri, index) => (
-                        <View key={index} className="relative">
-                          <Image
-                            source={{ uri }}
-                            className="w-20 h-20 rounded-xl"
-                            resizeMode="cover"
-                          />
-                          <Pressable
-                            onPress={() => handleRemovePhoto(index)}
-                            className="absolute -top-2 -right-2 bg-error-500 rounded-full p-1"
-                          >
-                            <X size={14} color="#fff" />
-                          </Pressable>
-                        </View>
-                      ))}
-                    </HStack>
-                  </ScrollView>
-                )}
-
-                {selectedPhotos.length < 5 && (
-                  <Pressable
-                    onPress={openCamera}
-                    className="bg-primary-50 rounded-xl p-4 items-center"
-                  >
-                    <Camera size={24} className="text-primary-600 mb-2" />
-                    <Text className="text-primary-600 text-sm">{getText(t.camera.takePhoto)}</Text>
-                  </Pressable>
-                )}
-              </VStack>
-
-              {/* Submit Button */}
-              <Button
-                onPress={handleCompleteWithPhotos}
-                isDisabled={isActionLoading || selectedPhotos.length === 0}
-                className="bg-success-600"
-              >
-                {isActionLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <ButtonText>{getText(t.parshad.issueDetail.submitUpdate)}</ButtonText>
-                )}
-              </Button>
-
-              {/* Cancel */}
-              <Pressable
-                onPress={() => {
-                  setShowUpdateForm(false);
-                  setSelectedPhotos([]);
-                  setProgressNotes("");
-                }}
-                className="mt-3"
-              >
-                <Text className="text-typography-500 text-center">
-                  {getText(t.actions.cancel)}
-                </Text>
-              </Pressable>
-            </Box>
-          </View>
-        )}
       </ScrollView>
 
       {/* Action Buttons */}
-      {!showUpdateForm && (canAcknowledge || canStartWork || canComplete || canReview) && (
+      {!showUpdateForm && (canAcknowledge || canReview) && (
         <View className="absolute bottom-0 left-0 right-0 bg-background-0 border-t border-outline-100 px-4 py-4 pb-8">
           {canAcknowledge && (
             <Button
@@ -608,40 +509,6 @@ export const ParshadIssueDetail: React.FC = () => {
                     <ButtonText>{getText(t.parshad.issues.reviewAndClose)}</ButtonText>
                   </>
                 )}
-              </HStack>
-            </Button>
-          )}
-
-          {canStartWork && (
-            <Button
-              onPress={handleStartWork}
-              isDisabled={isActionLoading}
-              className="bg-primary-600"
-              size="lg"
-            >
-              <HStack className="items-center" space="sm">
-                {isActionLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <PlayCircle size={20} color="#fff" />
-                    <ButtonText>{getText(t.parshad.issues.startWork)}</ButtonText>
-                  </>
-                )}
-              </HStack>
-            </Button>
-          )}
-
-          {canComplete && (
-            <Button
-              onPress={() => setShowUpdateForm(true)}
-              isDisabled={isActionLoading}
-              className="bg-success-600"
-              size="lg"
-            >
-              <HStack className="items-center" space="sm">
-                <CheckCircle size={20} color="#fff" />
-                <ButtonText>{getText(t.parshad.issues.markComplete)}</ButtonText>
               </HStack>
             </Button>
           )}
