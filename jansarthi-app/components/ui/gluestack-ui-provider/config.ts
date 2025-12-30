@@ -177,8 +177,8 @@ export const config = {
     /* Report Status Colors */
     "--color-status-reported": "220 53 69", // Red #DC3545
     "--color-status-reported-bg": "254 226 226", // #FEE2E2
-    "--color-status-pradhan": "255 193 7", // Yellow #FFC107
-    "--color-status-pradhan-bg": "255 248 225", // #FFF8E1
+    "--color-status-parshad": "255 193 7", // Yellow #FFC107
+    "--color-status-parshad-bg": "255 248 225", // #FFF8E1
     "--color-status-started": "25 135 84", // Green #198754
     "--color-status-started-bg": "232 245 233", // #E8F5E9
     "--color-status-finished": "13 110 253", // Blue #0D6EFD
@@ -365,8 +365,8 @@ export const config = {
     /* Report Status Colors - Same for both modes */
     "--color-status-reported": "220 53 69",
     "--color-status-reported-bg": "83 19 19",
-    "--color-status-pradhan": "255 193 7",
-    "--color-status-pradhan-bg": "128 96 4",
+    "--color-status-parshad": "255 193 7",
+    "--color-status-parshad-bg": "128 96 4",
     "--color-status-started": "25 135 84",
     "--color-status-started-bg": "27 50 36",
     "--color-status-finished": "13 110 253",

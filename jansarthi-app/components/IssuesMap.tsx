@@ -83,11 +83,6 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
   const loadIssues = async () => {
     try {
       setError(null);
-      
-      if (!isAuthenticated) {
-        router.push('/login' as any);
-        return;
-      }
 
       // Wait for user location if we don't have it yet
       let searchLocation = userLocation;
@@ -174,7 +169,7 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
     switch (status) {
       case 'reported':
         return '#ef4444'; // red
-      case 'pradhan_check':
+      case 'parshad_check':
         return '#eab308'; // yellow
       case 'started_working':
         return '#22c55e'; // green
@@ -231,8 +226,8 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
-      case 'pradhan_check':
-        return getText(t.status.pradhanCheck);
+      case 'parshad_check':
+        return getText(t.status.parshadCheck);
       case 'started_working':
         return getText(t.status.startedWorking);
       case 'finished_work':

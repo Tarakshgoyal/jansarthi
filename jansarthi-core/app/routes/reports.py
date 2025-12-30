@@ -14,11 +14,12 @@ from fastapi import (
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models.issue import Issue, IssuePhoto, IssueStatus, IssueType, User
+from app.models.issue import Issue, IssuePhoto, IssueStatus, IssueType, User, UserRole
 from app.schemas.issue import (
     IssueCreate,
     IssueListResponse,
     IssueMapResponse,
+    IssuePhotoResponse,
     IssueResponse,
     IssueStatusUpdate,
     IssueUpdate,
@@ -43,6 +44,8 @@ async def create_issue(
     description: str = Form(..., min_length=10, max_length=2000),
     latitude: float = Form(..., ge=-90, le=90),
     longitude: float = Form(..., ge=-180, le=180),
+    ward_id: Optional[int] = Form(None, description="Ward number (1-100)"),
+    ward_name: Optional[str] = Form(None, max_length=200, description="Ward name"),
     photos: list[UploadFile] = File(default=[]),
     current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
@@ -56,6 +59,8 @@ async def create_issue(
     - **description**: Detailed description of the issue
     - **latitude**: Location latitude
     - **longitude**: Location longitude
+    - **ward_id**: Ward number (1-100) for Dehradun Nagar Nigam
+    - **ward_name**: Ward name
     - **photos**: Up to 3 photos of the issue
     
     The user_id is automatically extracted from the authentication token.
@@ -87,14 +92,40 @@ async def create_issue(
         # Reset file pointer for later use
         await photo.seek(0)
 
+    # Auto-assign to Parshad of this ward if ward_id is provided
+    assigned_parshad_id = None
+    assignment_message = None
+    initial_status = IssueStatus.REPORTED
+    
+    if ward_id is not None:
+        # Find a Parshad assigned to this ward
+        parshad = session.exec(
+            select(User).where(
+                User.role == UserRole.PARSHAD,
+                User.ward_id == ward_id,
+                User.is_active == True
+            )
+        ).first()
+        
+        if parshad:
+            assigned_parshad_id = parshad.id
+            initial_status = IssueStatus.ASSIGNED
+            assignment_message = f"Auto-assigned to Parshad {parshad.name} of ward {ward_id}"
+        else:
+            assignment_message = f"No Parshad assigned to ward {ward_id}. Issue is unassigned."
+
     # Create issue record
     new_issue = Issue(
         issue_type=issue_type,
         description=description,
         latitude=latitude,
         longitude=longitude,
+        ward_id=ward_id,
+        ward_name=ward_name,
         user_id=current_user.id,
-        status=IssueStatus.REPORTED,
+        assigned_parshad_id=assigned_parshad_id,
+        assignment_notes=assignment_message,
+        status=initial_status,
     )
 
     session.add(new_issue)
@@ -139,7 +170,23 @@ async def create_issue(
     for photo in new_issue.photos:
         photo.photo_url = storage_service.get_file_url(photo.photo_url)
 
-    return new_issue
+    # Build response with assignment message
+    return IssueResponse(
+        id=new_issue.id,
+        issue_type=new_issue.issue_type,
+        description=new_issue.description,
+        latitude=new_issue.latitude,
+        longitude=new_issue.longitude,
+        ward_id=new_issue.ward_id,
+        ward_name=new_issue.ward_name,
+        status=new_issue.status,
+        user_id=new_issue.user_id,
+        assigned_parshad_id=new_issue.assigned_parshad_id,
+        assignment_message=assignment_message,
+        created_at=new_issue.created_at,
+        updated_at=new_issue.updated_at,
+        photos=[IssuePhotoResponse.model_validate(p) for p in new_issue.photos],
+    )
 
 
 @reports_router.get(

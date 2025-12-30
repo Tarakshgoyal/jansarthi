@@ -21,7 +21,7 @@ const BackHeader: React.FC<BackHeaderProps> = ({ title }) => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.push("/");
+      router.navigate("/(app)");
     }
   };
 

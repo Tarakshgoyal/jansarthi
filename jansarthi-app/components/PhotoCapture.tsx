@@ -1,5 +1,6 @@
 import { useLanguage } from "@/contexts/LanguageContext";
 import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
+import { RotateCcw } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { Alert, Modal, TouchableOpacity } from "react-native";
 import { Box } from "./ui/box";
@@ -191,10 +192,6 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
           onPress={openCamera}
           className="w-full"
         >
-          <ButtonIcon
-            as={() => <Text className="text-lg mr-2">📷</Text>}
-            className="mr-2"
-          />
           <ButtonText>
             {photos.length === 0
               ? getText(t.camera.takePhoto)
@@ -259,7 +256,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
                   onPress={toggleCameraFacing}
                   className="bg-white/20 w-16 h-16 rounded-full"
                 >
-                  <ButtonIcon as={() => <Text className="text-2xl">🔄</Text>} />
+                  <ButtonIcon as={() => <Text className="text-2xl"><RotateCcw/></Text>} />
                 </Button>
               </HStack>
             </VStack>

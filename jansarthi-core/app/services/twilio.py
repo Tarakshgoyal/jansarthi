@@ -1,10 +1,9 @@
-"""Twilio service for sending OTP SMS"""
+"""OTP service using 2Factor.in API"""
 
-import random
 import re
-from datetime import datetime, timedelta
+from typing import Optional, Tuple
 
-from twilio.rest import Client
+import requests
 
 from app.settings.config import get_settings
 
@@ -48,91 +47,107 @@ def normalize_phone_number(phone: str) -> str:
     return phone
 
 
-class TwilioService:
-    """Service for sending SMS via Twilio"""
+class OTPService:
+    """Service for sending and verifying OTP via 2Factor.in API"""
+
+    BASE_URL = "https://2factor.in/API/V1"
 
     def __init__(self):
-        """Initialize Twilio client"""
-        self.client = Client(
-            settings.twilio_account_sid,
-            settings.twilio_auth_token
-        )
-        # Use your actual Twilio phone number
-        self.from_number = "+17248043746"
+        """Initialize OTP service with API key"""
+        self.api_key = settings.otp_service_api_key
 
-    def generate_otp(self) -> str:
-        """Generate a random OTP code"""
-        otp = ''.join([str(random.randint(0, 9)) for _ in range(settings.otp_length)])
-        return otp
-
-    def send_otp(self, to_number: str, otp_code: str) -> bool:
+    def send_otp(self, to_number: str) -> Tuple[bool, Optional[str]]:
         """
-        Send OTP via SMS
+        Send OTP via SMS using 2Factor.in API
         
         Args:
             to_number: Recipient phone number (will be normalized to E.164 format)
-            otp_code: OTP code to send
             
         Returns:
-            bool: True if sent successfully, False otherwise
+            Tuple[bool, Optional[str]]: (success, session_id)
+                - success: True if sent successfully, False otherwise
+                - session_id: Session ID to use for verification (None if failed)
+                  In dev mode, returns "dev_mode" as session_id
         """
+        # Development mode - skip actual OTP sending
+        if settings.dev_mode:
+            normalized_number = normalize_phone_number(to_number)
+            print(f"[DEV MODE] Skipping OTP send to {normalized_number}. Use OTP: {settings.dev_default_otp}")
+            return True, "dev_mode"
+        
         try:
             # Normalize phone number to E.164 format
             normalized_number = normalize_phone_number(to_number)
             
-            message_body = f"Your Jansarthi verification code is: {otp_code}\n\nThis code will expire in {settings.otp_expiry_minutes} minutes.\n\nDo not share this code with anyone."
+            # Build the API URL
+            url = f"{self.BASE_URL}/{self.api_key}/SMS/{normalized_number}/AUTOGEN/OTP1"
             
-            message = self.client.messages.create(
-                body=message_body,
-                from_=self.from_number,
-                to=normalized_number
-            )
+            response = requests.get(url)
+            data = response.json()
             
-            print(f"SMS sent successfully to {normalized_number}. SID: {message.sid}")
-            return True
-            
+            if data.get("Status") == "Success":
+                session_id = data.get("Details")
+                print(f"OTP sent successfully to {normalized_number}. Session ID: {session_id}")
+                return True, session_id
+            else:
+                print(f"Failed to send OTP to {normalized_number}. Response: {data}")
+                return False, None
+                
         except Exception as e:
-            print(f"Error sending SMS to {to_number}: {str(e)}")
-            return False
+            print(f"Error sending OTP to {to_number}: {str(e)}")
+            return False, None
 
-    def send_welcome_message(self, to_number: str, name: str) -> bool:
+    def verify_otp(self, session_id: str, otp_code: str) -> bool:
         """
-        Send welcome message to new user
+        Verify OTP using 2Factor.in API
         
         Args:
-            to_number: Recipient phone number (will be normalized to E.164 format)
-            name: User's name
+            session_id: Session ID received when OTP was sent
+            otp_code: OTP code entered by user
             
         Returns:
-            bool: True if sent successfully, False otherwise
+            bool: True if OTP is valid, False otherwise
         """
+        # Development mode - verify against default OTP
+        if settings.dev_mode or session_id == "dev_mode":
+            is_valid = otp_code == settings.dev_default_otp
+            if is_valid:
+                print(f"[DEV MODE] OTP verified successfully")
+            else:
+                print(f"[DEV MODE] OTP verification failed. Expected: {settings.dev_default_otp}, Got: {otp_code}")
+            return is_valid
+        
         try:
-            # Normalize phone number to E.164 format
-            normalized_number = normalize_phone_number(to_number)
+            # Build the API URL
+            url = f"{self.BASE_URL}/{self.api_key}/SMS/VERIFY/{session_id}/{otp_code}"
             
-            message_body = f"Welcome to Jansarthi, {name}! 🎉\n\nThank you for joining us. You can now report civic issues in your area and help make your community better."
+            response = requests.get(url)
+            data = response.json()
             
-            message = self.client.messages.create(
-                body=message_body,
-                from_=self.from_number,
-                to=normalized_number
-            )
-            
-            print(f"Welcome SMS sent successfully to {normalized_number}. SID: {message.sid}")
-            return True
-            
+            if data.get("Status") == "Success" and data.get("Details") == "OTP Matched":
+                print(f"OTP verified successfully for session: {session_id}")
+                return True
+            else:
+                print(f"OTP verification failed. Response: {data}")
+                return False
+                
         except Exception as e:
-            print(f"Error sending welcome SMS to {to_number}: {str(e)}")
+            print(f"Error verifying OTP: {str(e)}")
             return False
 
 
 # Singleton instance
-_twilio_service = None
+_otp_service = None
 
 
-def get_twilio_service() -> TwilioService:
-    """Get Twilio service instance"""
-    global _twilio_service
-    if _twilio_service is None:
-        _twilio_service = TwilioService()
-    return _twilio_service
+def get_otp_service() -> OTPService:
+    """Get OTP service instance"""
+    global _otp_service
+    if _otp_service is None:
+        _otp_service = OTPService()
+    return _otp_service
+
+
+# Backward compatibility aliases
+TwilioService = OTPService
+get_twilio_service = get_otp_service

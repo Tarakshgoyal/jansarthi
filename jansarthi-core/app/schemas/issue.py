@@ -39,8 +39,12 @@ class IssueResponse(BaseModel):
     description: str
     latitude: float
     longitude: float
+    ward_id: Optional[int] = None
+    ward_name: Optional[str] = None
     status: IssueStatus
     user_id: Optional[int]
+    assigned_parshad_id: Optional[int] = None
+    assignment_message: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     photos: list[IssuePhotoResponse] = []

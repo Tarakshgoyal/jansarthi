@@ -22,15 +22,40 @@ interface StatusTrackerProps {
 const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt }) => {
   const { t, language, getText } = useLanguage();
 
+  // New flow stages:
+  // 1. Reported
+  // 2. Parshad Acknowledged (parshad assigned and confirmed issue exists)
+  // 3. PWD Working (PWD workers are fixing the issue)
+  // 4. Issue Resolved (Parshad reviewed and closed)
   const stages = [
     { key: 'reported', label: getText(t.status.reported) },
-    { key: 'pradhan_check', label: getText(t.status.pradhan) },
-    { key: 'started_working', label: getText(t.status.pwdClerkStartedWorking) },
-    { key: 'finished_work', label: getText(t.status.finishedWorking) },
+    { key: 'parshad_acknowledged', label: getText(t.status.parshad) },
+    { key: 'pwd_working', label: getText(t.status.pwdClerkStartedWorking) },
+    { key: 'parshad_reviewed', label: getText(t.status.finishedWorking) },
   ];
 
   const getCurrentStageIndex = () => {
-    return stages.findIndex(stage => stage.key === currentStatus);
+    const status = currentStatus?.toLowerCase();
+    
+    // Map all statuses to appropriate stage
+    switch (status) {
+      case 'reported':
+        return 0;
+      case 'assigned':
+      case 'parshad_acknowledged':
+      case 'parshad_check':
+        return 1;
+      case 'pwd_working':
+      case 'started_working':
+        return 2;
+      case 'pwd_completed':
+        return 2; // Still in PWD stage visually, but almost done
+      case 'parshad_reviewed':
+      case 'finished_work':
+        return 3;
+      default:
+        return 0;
+    }
   };
 
   const currentStageIndex = getCurrentStageIndex();
@@ -165,7 +190,7 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
     switch (status) {
       case 'reported':
         return 'bg-red-500';
-      case 'pradhan_check':
+      case 'parshad_check':
         return 'bg-yellow-500';
       case 'started_working':
         return 'bg-green-500';
@@ -180,8 +205,8 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
-      case 'pradhan_check':
-        return getText(t.status.pradhanCheck);
+      case 'parshad_check':
+        return getText(t.status.parshadCheck);
       case 'started_working':
         return getText(t.status.startedWorking);
       case 'finished_work':

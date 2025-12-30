@@ -3,11 +3,11 @@ import { IssueTypeCard } from "@/components/IssueTypeCard";
 import { MenuCard } from "@/components/MenuCard";
 import { QuickActionItem } from "@/components/QuickActionItem";
 import {
-    Actionsheet,
-    ActionsheetBackdrop,
-    ActionsheetContent,
-    ActionsheetDragIndicator,
-    ActionsheetDragIndicatorWrapper,
+  Actionsheet,
+  ActionsheetBackdrop,
+  ActionsheetContent,
+  ActionsheetDragIndicator,
+  ActionsheetDragIndicatorWrapper,
 } from "@/components/ui/actionsheet";
 import { Box } from "@/components/ui/box";
 import { Grid, GridItem } from "@/components/ui/grid";
@@ -18,13 +18,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "expo-router";
 import {
-    Construction,
-    Droplet,
-    Eye,
-    Map,
-    Plus,
-    Trash2,
-    Zap
+  Construction,
+  Droplet,
+  Eye,
+  Map,
+  Plus,
+  Trash2,
+  Zap
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
@@ -35,18 +35,18 @@ export const MainMenu = () => {
   const router = useRouter();
   const [showIssueTypeSheet, setShowIssueTypeSheet] = useState(false);
 
-  // Redirect to login if not authenticated
+  // Redirect Parshad users to their dashboard
   useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.replace('/login' as any);
+    if (!isLoading && isAuthenticated && user?.role === 'parshad') {
+      router.replace('/(app)/parshad-dashboard');
     }
-  }, [isAuthenticated, isLoading]);
+    // PWD workers would go to their own dashboard (to be implemented)
+    // else if (user?.role === 'pwd_worker') {
+    //   router.replace('/(app)/pwd-dashboard');
+    // }
+  }, [isAuthenticated, isLoading, user?.role]);
 
   const handleCreateReport = () => {
-    if (!isAuthenticated) {
-      router.push('/login' as any);
-      return;
-    }
     setShowIssueTypeSheet(true);
   };
 
@@ -55,16 +55,16 @@ export const MainMenu = () => {
     // Navigate to create report screen with issue type
     switch (issueType) {
       case "water":
-        router.push("/water-issue");
+        router.push("/(app)/water-issue");
         break;
       case "electricity":
-        router.push("/electricity-issue");
+        router.push("/(app)/electricity-issue");
         break;
       case "road":
-        router.push("/road-issue");
+        router.push("/(app)/road-issue");
         break;
       case "garbage":
-        router.push("/garbage-issue");
+        router.push("/(app)/garbage-issue");
         break;
       default:
         console.log(`Navigate to create report with type: ${issueType}`);
@@ -72,19 +72,11 @@ export const MainMenu = () => {
   };
 
   const handleViewReports = () => {
-    if (!isAuthenticated) {
-      router.push('/login' as any);
-      return;
-    }
-    router.push('/my-reports' as any);
+    router.push('/(app)/my-reports');
   };
 
   const handleViewMap = () => {
-    if (!isAuthenticated) {
-      router.push('/login' as any);
-      return;
-    }
-    router.push('/map-view' as any);
+    router.push('/(app)/map-view');
   };
 
   const handleLogout = async () => {

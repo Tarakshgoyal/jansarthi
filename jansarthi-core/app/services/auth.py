@@ -102,11 +102,11 @@ class AuthService:
                 algorithms=[settings.jwt_algorithm]
             )
             
-            user_id: int = payload.get("user_id")
-            mobile_number: str = payload.get("mobile_number")
-            token_type_from_payload: str = payload.get("token_type")
+            user_id: int = int(str(payload.get("user_id")))
+            mobile_number: str = str(payload.get("mobile_number"))
+            token_type_from_payload: str = str(payload.get("token_type"))
             
-            if user_id is None or mobile_number is None:
+            if not user_id or len(mobile_number) <= 0:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Invalid token payload",

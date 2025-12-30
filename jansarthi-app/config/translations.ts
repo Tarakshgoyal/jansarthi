@@ -26,6 +26,7 @@ export interface Translations {
   // Map
   map: {
     loadingLocation: Translation;
+    loadingAddress: Translation;
     permissionDenied: Translation;
     locationError: Translation;
     enableLocationInstructions: Translation;
@@ -131,6 +132,7 @@ export interface Translations {
       dontHaveAccount: Translation;
       signUp: Translation;
       enterMobileNumber: Translation;
+      enterValidMobileNumber: Translation;
     };
     signup: {
       title: Translation;
@@ -223,15 +225,130 @@ export interface Translations {
     status: Translation;
   };
 
+  // Ward Selection
+  ward: {
+    selectWard: Translation;
+    selectYourWard: Translation;
+    searchPlaceholder: Translation;
+    noWardsFound: Translation;
+    parshad: Translation;
+    viewMap: Translation;
+    wardNumber: Translation;
+  };
+
   // Status Labels
   status: {
     reported: Translation;
-    pradhanCheck: Translation;
+    assigned: Translation;
+    parshadCheck: Translation;
     startedWorking: Translation;
     finishedWork: Translation;
-    pradhan: Translation;
+    parshad: Translation;
     pwdClerkStartedWorking: Translation;
     finishedWorking: Translation;
+    pwdCompleted: Translation;
+    pendingReview: Translation;
+  };
+
+  // Parshad Dashboard
+  parshad: {
+    dashboard: {
+      title: Translation;
+      welcome: Translation;
+      totalAssigned: Translation;
+      pendingAcknowledgement: Translation;
+      inProgress: Translation;
+      pendingReview: Translation;
+      completed: Translation;
+      issuesByType: Translation;
+      noIssuesAssigned: Translation;
+      noIssuesAssignedMessage: Translation;
+    };
+    issues: {
+      title: Translation;
+      pending: Translation;
+      inProgress: Translation;
+      pendingReview: Translation;
+      completed: Translation;
+      all: Translation;
+      viewDetails: Translation;
+      acknowledge: Translation;
+      startWork: Translation;
+      markComplete: Translation;
+      reviewAndClose: Translation;
+      updateProgress: Translation;
+      acknowledging: Translation;
+      startingWork: Translation;
+      completing: Translation;
+      updating: Translation;
+    };
+    issueDetail: {
+      title: Translation;
+      reportedBy: Translation;
+      assignmentNotes: Translation;
+      progressNotes: Translation;
+      addProgressNote: Translation;
+      progressNotePlaceholder: Translation;
+      attachPhotos: Translation;
+      attachPhotosDesc: Translation;
+      submitUpdate: Translation;
+      submitting: Translation;
+      selectNewStatus: Translation;
+    };
+    status: {
+      acknowledgeConfirm: Translation;
+      startWorkConfirm: Translation;
+      completeConfirm: Translation;
+      reviewConfirm: Translation;
+      statusUpdated: Translation;
+      pendingReview: Translation;
+      issueResolved: Translation;
+    };
+  };
+
+  // PWD Worker Dashboard
+  pwd: {
+    dashboard: {
+      title: Translation;
+      welcome: Translation;
+      loading: Translation;
+      pendingWork: Translation;
+      inProgress: Translation;
+      pendingReview: Translation;
+      completed: Translation;
+      noIssues: Translation;
+    };
+    issues: {
+      pending: Translation;
+      inProgress: Translation;
+      completed: Translation;
+      pendingTitle: Translation;
+      inProgressTitle: Translation;
+      completedTitle: Translation;
+      startWork: Translation;
+      completeWork: Translation;
+    };
+    issueDetail: {
+      title: Translation;
+      parshad: Translation;
+      reportedBy: Translation;
+      progressNotes: Translation;
+      workNotes: Translation;
+      workNotesPlaceholder: Translation;
+      attachPhotos: Translation;
+      attachPhotosDesc: Translation;
+    };
+    status: {
+      pendingWork: Translation;
+      inProgress: Translation;
+      pendingReview: Translation;
+      completed: Translation;
+      startWorkConfirm: Translation;
+      completeWorkConfirm: Translation;
+      statusUpdated: Translation;
+      awaitingReview: Translation;
+      issueResolved: Translation;
+    };
   };
 }
 
@@ -271,6 +388,10 @@ export const translations: Translations = {
     loadingLocation: {
       en: "Loading your location...",
       hi: "आपका स्थान लोड हो रहा है...",
+    },
+    loadingAddress: {
+      en: "Loading address...",
+      hi: "पता लोड हो रहा है...",
     },
     permissionDenied: {
       en: "Location permission denied",
@@ -571,8 +692,8 @@ export const translations: Translations = {
         hi: "मोबाइल नंबर",
       },
       mobileNumberPlaceholder: {
-        en: "Mobile Number",
-        hi: "मोबाइल नंबर",
+        en: "Phone number",
+        hi: "फ़ोन नंबर",
       },
       sendOtp: {
         en: "Send OTP",
@@ -593,6 +714,10 @@ export const translations: Translations = {
       enterMobileNumber: {
         en: "Please enter your mobile number",
         hi: "कृपया अपना मोबाइल नंबर दर्ज करें",
+      },
+      enterValidMobileNumber: {
+        en: "Please enter a valid 10-digit mobile number",
+        hi: "कृपया एक वैध 10-अंकीय मोबाइल नंबर दर्ज करें",
       },
     },
     signup: {
@@ -893,35 +1018,411 @@ export const translations: Translations = {
     },
   },
 
+  // Ward Selection
+  ward: {
+    selectWard: {
+      en: "Select Ward",
+      hi: "वार्ड चुनें",
+    },
+    selectYourWard: {
+      en: "Select your ward...",
+      hi: "अपना वार्ड चुनें...",
+    },
+    searchPlaceholder: {
+      en: "Search ward name or number...",
+      hi: "वार्ड का नाम या नंबर खोजें...",
+    },
+    noWardsFound: {
+      en: "No wards found",
+      hi: "कोई वार्ड नहीं मिला",
+    },
+    parshad: {
+      en: "Parshad",
+      hi: "पार्षद",
+    },
+    viewMap: {
+      en: "View Map",
+      hi: "नक्शा देखें",
+    },
+    wardNumber: {
+      en: "Ward",
+      hi: "वार्ड",
+    },
+  },
+
   // Status Labels
   status: {
     reported: {
       en: "Reported",
       hi: "रिपोर्ट की गई",
     },
-    pradhanCheck: {
-      en: "Pradhan Check",
-      hi: "प्रधान जांच",
+    assigned: {
+      en: "Assigned",
+      hi: "सौंपा गया",
+    },
+    parshadCheck: {
+      en: "Parshad Acknowledged",
+      hi: "पार्षद ने पुष्टि की",
     },
     startedWorking: {
-      en: "Started Working",
-      hi: "काम शुरू हुआ",
+      en: "PWD Working",
+      hi: "PWD काम कर रहा है",
     },
     finishedWork: {
-      en: "Finished Work",
-      hi: "काम पूरा हुआ",
+      en: "Issue Resolved",
+      hi: "समस्या हल हुई",
     },
-    pradhan: {
-      en: "Pradhan",
-      hi: "प्रधान",
+    parshad: {
+      en: "Parshad",
+      hi: "पार्षद",
     },
     pwdClerkStartedWorking: {
       en: "PWD/Clerk\nStarted Working",
       hi: "PWD/क्लर्क\nकाम शुरू",
     },
     finishedWorking: {
-      en: "Finished\nWorking",
-      hi: "काम\nपूरा हुआ",
+      en: "Issue\nResolved",
+      hi: "समस्या\nहल हुई",
+    },
+    pwdCompleted: {
+      en: "PWD Completed",
+      hi: "PWD काम पूरा",
+    },
+    pendingReview: {
+      en: "Pending Review",
+      hi: "समीक्षा लंबित",
+    },
+  },
+
+  // Parshad Dashboard
+  parshad: {
+    dashboard: {
+      title: {
+        en: "Parshad Dashboard",
+        hi: "पार्षद डैशबोर्ड",
+      },
+      welcome: {
+        en: "Welcome, Parshad",
+        hi: "स्वागत है, पार्षद",
+      },
+      totalAssigned: {
+        en: "Total Assigned",
+        hi: "कुल सौंपे गए",
+      },
+      pendingAcknowledgement: {
+        en: "Pending",
+        hi: "लंबित",
+      },
+      inProgress: {
+        en: "In Progress",
+        hi: "प्रगति में",
+      },
+      pendingReview: {
+        en: "Pending Review",
+        hi: "समीक्षा लंबित",
+      },
+      completed: {
+        en: "Completed",
+        hi: "पूर्ण",
+      },
+      issuesByType: {
+        en: "Issues by Type",
+        hi: "प्रकार के अनुसार समस्याएं",
+      },
+      noIssuesAssigned: {
+        en: "No Issues Assigned",
+        hi: "कोई समस्या नहीं सौंपी गई",
+      },
+      noIssuesAssignedMessage: {
+        en: "You have no issues assigned to you at the moment.",
+        hi: "इस समय आपको कोई समस्या नहीं सौंपी गई है।",
+      },
+    },
+    issues: {
+      title: {
+        en: "Assigned Issues",
+        hi: "सौंपी गई समस्याएं",
+      },
+      pending: {
+        en: "Pending",
+        hi: "लंबित",
+      },
+      inProgress: {
+        en: "In Progress",
+        hi: "प्रगति में",
+      },
+      pendingReview: {
+        en: "Review",
+        hi: "समीक्षा",
+      },
+      completed: {
+        en: "Completed",
+        hi: "पूर्ण",
+      },
+      all: {
+        en: "All",
+        hi: "सभी",
+      },
+      viewDetails: {
+        en: "View Details",
+        hi: "विवरण देखें",
+      },
+      acknowledge: {
+        en: "Acknowledge Issue",
+        hi: "समस्या स्वीकार करें",
+      },
+      startWork: {
+        en: "Start Work",
+        hi: "काम शुरू करें",
+      },
+      markComplete: {
+        en: "Mark Complete",
+        hi: "पूर्ण करें",
+      },
+      reviewAndClose: {
+        en: "Review & Close",
+        hi: "समीक्षा और बंद करें",
+      },
+      updateProgress: {
+        en: "Update Progress",
+        hi: "प्रगति अपडेट करें",
+      },
+      acknowledging: {
+        en: "Acknowledging...",
+        hi: "स्वीकार कर रहे हैं...",
+      },
+      startingWork: {
+        en: "Starting work...",
+        hi: "काम शुरू कर रहे हैं...",
+      },
+      completing: {
+        en: "Completing...",
+        hi: "पूर्ण कर रहे हैं...",
+      },
+      updating: {
+        en: "Updating...",
+        hi: "अपडेट कर रहे हैं...",
+      },
+    },
+    issueDetail: {
+      title: {
+        en: "Issue Details",
+        hi: "समस्या विवरण",
+      },
+      reportedBy: {
+        en: "Reported By",
+        hi: "रिपोर्टर",
+      },
+      assignmentNotes: {
+        en: "Assignment Notes",
+        hi: "असाइनमेंट नोट्स",
+      },
+      progressNotes: {
+        en: "Progress Notes",
+        hi: "प्रगति नोट्स",
+      },
+      addProgressNote: {
+        en: "Add Progress Note",
+        hi: "प्रगति नोट जोड़ें",
+      },
+      progressNotePlaceholder: {
+        en: "Describe the work done or progress made...",
+        hi: "किए गए कार्य या प्रगति का वर्णन करें...",
+      },
+      attachPhotos: {
+        en: "Attach Photos",
+        hi: "फोटो जोड़ें",
+      },
+      attachPhotosDesc: {
+        en: "Add photos as proof of work (up to 5)",
+        hi: "काम के प्रमाण के रूप में फोटो जोड़ें (5 तक)",
+      },
+      submitUpdate: {
+        en: "Submit Update",
+        hi: "अपडेट सबमिट करें",
+      },
+      submitting: {
+        en: "Submitting...",
+        hi: "सबमिट हो रहा है...",
+      },
+      selectNewStatus: {
+        en: "Select New Status",
+        hi: "नई स्थिति चुनें",
+      },
+    },
+    status: {
+      acknowledgeConfirm: {
+        en: "Confirm that this problem exists in your ward?",
+        hi: "पुष्टि करें कि यह समस्या आपके वार्ड में मौजूद है?",
+      },
+      startWorkConfirm: {
+        en: "Are you sure you want to start working on this issue?",
+        hi: "क्या आप वाकई इस समस्या पर काम शुरू करना चाहते हैं?",
+      },
+      completeConfirm: {
+        en: "Are you sure you want to mark this issue as complete?",
+        hi: "क्या आप वाकई इस समस्या को पूर्ण के रूप में चिह्नित करना चाहते हैं?",
+      },
+      reviewConfirm: {
+        en: "Confirm that PWD has successfully fixed this issue?",
+        hi: "पुष्टि करें कि PWD ने इस समस्या को सफलतापूर्वक ठीक कर दिया है?",
+      },
+      statusUpdated: {
+        en: "Status updated successfully",
+        hi: "स्थिति सफलतापूर्वक अपडेट की गई",
+      },
+      pendingReview: {
+        en: "Pending Review",
+        hi: "समीक्षा लंबित",
+      },
+      issueResolved: {
+        en: "Issue has been resolved and closed",
+        hi: "समस्या हल हो गई और बंद कर दी गई",
+      },
+    },
+  },
+
+  // PWD Worker Dashboard
+  pwd: {
+    dashboard: {
+      title: {
+        en: "PWD Worker Dashboard",
+        hi: "PWD कर्मचारी डैशबोर्ड",
+      },
+      welcome: {
+        en: "Welcome",
+        hi: "स्वागत है",
+      },
+      loading: {
+        en: "Loading dashboard...",
+        hi: "डैशबोर्ड लोड हो रहा है...",
+      },
+      pendingWork: {
+        en: "Pending Work",
+        hi: "लंबित काम",
+      },
+      inProgress: {
+        en: "In Progress",
+        hi: "प्रगति में",
+      },
+      pendingReview: {
+        en: "Pending Review",
+        hi: "समीक्षा लंबित",
+      },
+      completed: {
+        en: "Completed",
+        hi: "पूर्ण",
+      },
+      noIssues: {
+        en: "No issues in this category",
+        hi: "इस श्रेणी में कोई समस्या नहीं",
+      },
+    },
+    issues: {
+      pending: {
+        en: "Pending",
+        hi: "लंबित",
+      },
+      inProgress: {
+        en: "Working",
+        hi: "काम में",
+      },
+      completed: {
+        en: "Done",
+        hi: "पूर्ण",
+      },
+      pendingTitle: {
+        en: "Issues Waiting for Work",
+        hi: "काम के लिए प्रतीक्षारत समस्याएं",
+      },
+      inProgressTitle: {
+        en: "Issues Being Worked On",
+        hi: "जिन पर काम हो रहा है",
+      },
+      completedTitle: {
+        en: "Completed Issues",
+        hi: "पूर्ण समस्याएं",
+      },
+      startWork: {
+        en: "Start Work",
+        hi: "काम शुरू करें",
+      },
+      completeWork: {
+        en: "Complete Work",
+        hi: "काम पूरा करें",
+      },
+    },
+    issueDetail: {
+      title: {
+        en: "Issue Details",
+        hi: "समस्या विवरण",
+      },
+      parshad: {
+        en: "Assigned Parshad",
+        hi: "सौंपे गए पार्षद",
+      },
+      reportedBy: {
+        en: "Reported By",
+        hi: "रिपोर्टर",
+      },
+      progressNotes: {
+        en: "Progress Notes",
+        hi: "प्रगति नोट्स",
+      },
+      workNotes: {
+        en: "Work Notes",
+        hi: "काम के नोट्स",
+      },
+      workNotesPlaceholder: {
+        en: "Describe the work done...",
+        hi: "किए गए काम का वर्णन करें...",
+      },
+      attachPhotos: {
+        en: "Attach Photos (Optional)",
+        hi: "फोटो जोड़ें (वैकल्पिक)",
+      },
+      attachPhotosDesc: {
+        en: "Add photos of completed work",
+        hi: "पूर्ण काम की फोटो जोड़ें",
+      },
+    },
+    status: {
+      pendingWork: {
+        en: "Pending Work",
+        hi: "लंबित काम",
+      },
+      inProgress: {
+        en: "In Progress",
+        hi: "प्रगति में",
+      },
+      pendingReview: {
+        en: "Pending Review",
+        hi: "समीक्षा लंबित",
+      },
+      completed: {
+        en: "Completed",
+        hi: "पूर्ण",
+      },
+      startWorkConfirm: {
+        en: "Start working on this issue?",
+        hi: "इस समस्या पर काम शुरू करें?",
+      },
+      completeWorkConfirm: {
+        en: "Mark this issue as work completed?",
+        hi: "इस समस्या को काम पूरा के रूप में चिह्नित करें?",
+      },
+      statusUpdated: {
+        en: "Status updated successfully",
+        hi: "स्थिति सफलतापूर्वक अपडेट की गई",
+      },
+      awaitingReview: {
+        en: "Awaiting Parshad Review",
+        hi: "पार्षद समीक्षा की प्रतीक्षा में",
+      },
+      issueResolved: {
+        en: "Issue Resolved",
+        hi: "समस्या हल हुई",
+      },
     },
   },
 };

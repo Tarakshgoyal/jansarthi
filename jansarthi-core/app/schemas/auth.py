@@ -1,9 +1,17 @@
 """Schemas for authentication and user management"""
 
 from datetime import datetime
+from enum import Enum
 from typing import Optional
 
 from pydantic import BaseModel, Field
+
+
+class UserRole(str, Enum):
+    """User role enum for API responses"""
+    USER = "user"
+    PARSHAD = "parshad"
+    PWD_WORKER = "pwd_worker"
 
 
 # User Schemas
@@ -24,8 +32,12 @@ class UserResponse(BaseModel):
     id: int
     name: str
     mobile_number: str
+    role: UserRole = UserRole.USER
     is_active: bool
     is_verified: bool
+    village_name: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
     created_at: datetime
     updated_at: datetime
     

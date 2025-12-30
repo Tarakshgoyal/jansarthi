@@ -3,10 +3,10 @@ import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { useLanguage } from "@/contexts/LanguageContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "expo-router";
+import { useLanguage } from "@/contexts/LanguageContext";
 import * as Location from "expo-location";
+import { useRouter } from "expo-router";
 import { Bell, MapPin, User } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { Pressable, View } from "react-native";
@@ -19,11 +19,8 @@ export const Header = () => {
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
 
   const handleProfilePress = () => {
-    if (isAuthenticated) {
-      router.push('/profile' as any);
-    } else {
-      router.push('/login' as any);
-    }
+    // User is always authenticated in (app) routes
+    router.push('/(app)/profile');
   };
 
   useEffect(() => {

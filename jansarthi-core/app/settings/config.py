@@ -20,9 +20,8 @@ POSTGRES_PORT: int = int(os.getenv("POSTGRES_PORT", "5432"))
 
 
 
-# Twilio Configuration
-TWILIO_ACCOUNT_SID: str = os.getenv("TWILIO_ACCOUNT_SID", "your_account_sid")
-TWILIO_AUTH_TOKEN: str = os.getenv("TWILIO_AUTH_TOKEN", "your_auth_token")
+# OTP Service Configuration (2Factor.in)
+OTP_SERVICE_API_KEY: str = os.getenv("OTP_SERVICE_API_KEY", "your_api_key")
 
 # JWT Configuration
 JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-this-in-production")
@@ -33,6 +32,10 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAY
 # OTP Configuration
 OTP_EXPIRY_MINUTES: int = int(os.getenv("OTP_EXPIRY_MINUTES", "10"))  # 10 minutes
 OTP_LENGTH: int = 6
+
+# Development Mode - when True, uses default OTP 999999 instead of sending real OTP
+DEV_MODE: bool = os.getenv("DEV_MODE", "false").lower() == "true"
+DEV_DEFAULT_OTP: str = "999999"
 
 # Database URL
 DATABASE_URL: str = (
@@ -64,9 +67,8 @@ class Settings:
     max_photos_per_issue: int = 3
     allowed_image_types: set = {"image/jpeg", "image/png", "image/jpg", "image/webp"}
     
-    # Twilio
-    twilio_account_sid: str = TWILIO_ACCOUNT_SID
-    twilio_auth_token: str = TWILIO_AUTH_TOKEN
+    # OTP Service (2Factor.in)
+    otp_service_api_key: str = OTP_SERVICE_API_KEY
     
     # JWT
     jwt_secret_key: str = JWT_SECRET_KEY
@@ -77,6 +79,10 @@ class Settings:
     # OTP
     otp_expiry_minutes: int = OTP_EXPIRY_MINUTES
     otp_length: int = OTP_LENGTH
+    
+    # Development Mode
+    dev_mode: bool = DEV_MODE
+    dev_default_otp: str = DEV_DEFAULT_OTP
 
 
 @lru_cache()

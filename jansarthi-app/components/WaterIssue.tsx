@@ -1,20 +1,22 @@
-import { useLanguage } from "@/contexts/LanguageContext";
+import { Ward } from "@/config/wards";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { apiService } from "@/services/api";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
-import { ScrollView, Alert } from "react-native";
+import { Alert, ScrollView } from "react-native";
 import LocationMap from "./LocationMap";
 import PhotoCapture from "./PhotoCapture";
+import WardSelector from "./WardSelector";
 import { Button, ButtonText } from "./ui/button";
 import {
   FormControl,
   FormControlLabel,
   FormControlLabelText,
 } from "./ui/form-control";
+import { Text } from "./ui/text";
 import { Textarea, TextareaInput } from "./ui/textarea";
 import { VStack } from "./ui/vstack";
-import { Text } from "./ui/text";
 
 interface WaterIssueProps {
   // Props will be added later
@@ -26,14 +28,16 @@ interface LocationCoords {
 }
 
 const WaterIssue: React.FC<WaterIssueProps> = () => {
-  const { getText, t } = useLanguage();
+  const { getText, t, language } = useLanguage();
   const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [location, setLocation] = useState<LocationCoords | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [description, setDescription] = useState<string>("");
+  const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wardError, setWardError] = useState<string | null>(null);
 
   const handleLocationChange = (coords: LocationCoords) => {
     setLocation(coords);
@@ -45,24 +49,30 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
     console.log("Water Issue Photos:", newPhotos);
   };
 
+  const handleWardSelect = (ward: Ward) => {
+    setSelectedWard(ward);
+    setWardError(null);
+    console.log("Water Issue Ward:", ward);
+  };
+
   const handleSubmit = async () => {
     try {
       setError(null);
-
-      // Check authentication
-      if (!isAuthenticated) {
-        router.push('/login' as any);
-        return;
-      }
+      setWardError(null);
 
       // Validate form
       if (!description.trim()) {
-        setError("Please provide a description");
+        setError(language === "hi" ? "कृपया विवरण प्रदान करें" : "Please provide a description");
         return;
       }
 
       if (!location) {
-        setError("Please select a location on the map");
+        setError(language === "hi" ? "कृपया मानचित्र पर स्थान चुनें" : "Please select a location on the map");
+        return;
+      }
+
+      if (!selectedWard) {
+        setWardError(language === "hi" ? "कृपया अपना वार्ड चुनें" : "Please select your ward");
         return;
       }
 
@@ -81,6 +91,8 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
+        ward_id: selectedWard.id,
+        ward_name: selectedWard.name,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 
@@ -101,6 +113,7 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
       // Reset form
       setDescription("");
       setPhotos([]);
+      setSelectedWard(null);
     } catch (err) {
       console.error("Failed to submit water issue:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to submit issue";
@@ -118,6 +131,13 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
         <VStack space="sm">
           <LocationMap height={300} onLocationChange={handleLocationChange} />
         </VStack>
+
+        {/* Ward Selector */}
+        <WardSelector
+          selectedWard={selectedWard}
+          onWardSelect={handleWardSelect}
+          error={wardError || undefined}
+        />
 
         {/* Issue Details Form */}
         <VStack space="md">

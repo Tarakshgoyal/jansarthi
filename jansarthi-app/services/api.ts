@@ -38,13 +38,33 @@ export const setUserData = async (userData: any) => {
   await SecureStore.setItemAsync(TOKEN_KEYS.USER_DATA, JSON.stringify(userData));
 };
 
+// User Roles
+export type UserRole = 'user' | 'parshad' | 'pwd_worker';
+
+// Issue Statuses - New Flow
+export type IssueStatus = 
+  | 'reported'
+  | 'assigned'
+  | 'parshad_acknowledged'
+  | 'pwd_working'
+  | 'pwd_completed'
+  | 'parshad_reviewed'
+  // Legacy statuses
+  | 'parshad_check'
+  | 'started_working'
+  | 'finished_work';
+
 // API Types
 export interface User {
   id: number;
   name: string;
   mobile_number: string;
+  role: UserRole;
   is_active: boolean;
   is_verified: boolean;
+  village_name?: string;
+  latitude?: number;
+  longitude?: number;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +103,8 @@ export interface Issue {
   description: string;
   latitude: number;
   longitude: number;
+  ward_id?: number;
+  ward_name?: string;
   status: string;
   user_id: number;
   created_at: string;
@@ -106,6 +128,77 @@ export interface IssueListResponse {
   page: number;
   page_size: number;
   total_pages: number;
+}
+
+// Parshad Types
+export interface ParshadInfo {
+  id: number;
+  name: string;
+  mobile_number: string;
+  village_name?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface UserInfo {
+  id: number;
+  name: string;
+  mobile_number: string;
+}
+
+export interface ParshadIssue {
+  id: number;
+  issue_type: string;
+  description: string;
+  latitude: number;
+  longitude: number;
+  status: string;
+  user_id?: number;
+  reporter?: UserInfo;
+  assigned_parshad_id?: number;
+  assigned_parshad?: ParshadInfo;
+  assignment_notes?: string;
+  progress_notes?: string;
+  created_at: string;
+  updated_at: string;
+  photo_count: number;
+  photos?: string[]; // Photo URLs
+}
+
+export interface ParshadIssueListResponse {
+  items: ParshadIssue[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface ParshadDashboardStats {
+  total_assigned: number;
+  pending_acknowledgement: number;
+  in_progress: number;
+  pending_review: number;
+  completed: number;
+  issues_by_type: {
+    water: number;
+    electricity: number;
+    road: number;
+    garbage: number;
+  };
+}
+
+// PWD Worker Types
+export interface PWDWorkerDashboardStats {
+  pending_work: number;
+  in_progress: number;
+  pending_review: number;
+  completed: number;
+  issues_by_type: {
+    water: number;
+    electricity: number;
+    road: number;
+    garbage: number;
+  };
 }
 
 // API Service
@@ -248,6 +341,8 @@ class ApiService {
     description: string;
     latitude: number;
     longitude: number;
+    ward_id?: number;
+    ward_name?: string;
     photos?: { uri: string; name: string; type: string }[];
   }): Promise<Issue> {
     const token = await getAccessToken();
@@ -257,6 +352,8 @@ class ApiService {
       description: data.description,
       latitude: data.latitude,
       longitude: data.longitude,
+      ward_id: data.ward_id,
+      ward_name: data.ward_name,
       photos_count: data.photos?.length || 0,
       has_token: !!token,
       api_url: `${this.baseURL}/api/reports`,
@@ -268,6 +365,14 @@ class ApiService {
     formData.append('description', data.description);
     formData.append('latitude', data.latitude.toString());
     formData.append('longitude', data.longitude.toString());
+    
+    // Add ward info if provided
+    if (data.ward_id) {
+      formData.append('ward_id', data.ward_id.toString());
+    }
+    if (data.ward_name) {
+      formData.append('ward_name', data.ward_name);
+    }
 
     // Add photos if provided (React Native format)
     if (data.photos && data.photos.length > 0) {
@@ -389,6 +494,258 @@ class ApiService {
         headers,
       }
     );
+    return this.handleResponse(response);
+  }
+
+  // ==================== Parshad APIs ====================
+
+  async getParshadDashboard(): Promise<ParshadDashboardStats> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/parshad/dashboard`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async getParshadIssues(params?: {
+    page?: number;
+    page_size?: number;
+    issue_type?: string;
+    status?: string;
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+    if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
+    if (params?.status) queryParams.append('status', params.status);
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getParshadPendingIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues/pending?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getParshadInProgressIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues/in-progress?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getParshadIssueDetail(issueId: number): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async acknowledgeIssue(issueId: number): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/acknowledge`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async startWorkOnIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/start-work${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async completeIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/complete${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async updateIssueWithPhotos(data: {
+    issueId: number;
+    status: string;
+    progress_notes?: string;
+    photos?: { uri: string; name: string; type: string }[];
+  }): Promise<ParshadIssue> {
+    const token = await getAccessToken();
+    
+    const formData = new FormData();
+    formData.append('status', data.status);
+    if (data.progress_notes) {
+      formData.append('progress_notes', data.progress_notes);
+    }
+
+    if (data.photos && data.photos.length > 0) {
+      data.photos.forEach((photo) => {
+        const file: any = {
+          uri: photo.uri,
+          name: photo.name,
+          type: photo.type,
+        };
+        formData.append('photos', file);
+      });
+    }
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues/${data.issueId}/update-with-photos`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        body: formData,
+      }
+    );
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      throw new Error(error.detail || 'Failed to update issue');
+    }
+
+    return response.json();
+  }
+
+  // Parshad Review Issue (new flow)
+  async reviewIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/review${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async getParshadPendingReviewIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues/pending-review?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  // ==================== PWD Worker APIs ====================
+
+  async getPWDWorkerDashboard(): Promise<PWDWorkerDashboardStats> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/pwd/dashboard/worker`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async getPWDWorkerIssues(params?: {
+    page?: number;
+    page_size?: number;
+    issue_type?: string;
+    filter_type?: 'pending' | 'in_progress' | 'completed';
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+    if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
+    if (params?.filter_type) queryParams.append('filter_type', params.filter_type);
+
+    const response = await fetch(
+      `${this.baseURL}/api/pwd/my-issues?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getPWDIssueDetail(issueId: number): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async pwdStartWork(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/start-work${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async pwdCompleteWork(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/complete-work${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
     return this.handleResponse(response);
   }
 }

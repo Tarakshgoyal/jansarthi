@@ -24,10 +24,7 @@ const Profile: React.FC<ProfileProps> = () => {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push('/login' as any);
-      return;
-    }
+    // User is always authenticated in (app) routes - layout handles redirect
     loadUserProfile();
   }, []);
 
@@ -67,7 +64,7 @@ const Profile: React.FC<ProfileProps> = () => {
           style: 'destructive',
           onPress: async () => {
             await logout();
-            router.replace('/login' as any);
+            // Layout will automatically redirect to login
           },
         },
       ]
