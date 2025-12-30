@@ -16,13 +16,26 @@ class IssueType(str, Enum):
 
 
 class IssueStatus(str, Enum):
-    """Enum for issue status"""
+    """Enum for issue status - New Flow:
+    1. REPORTED - User reports issue
+    2. ASSIGNED - Auto-assigned to Parshad of the ward
+    3. PARSHAD_ACKNOWLEDGED - Parshad confirms problem exists
+    4. PWD_WORKING - PWD workers are working on the issue
+    5. PWD_COMPLETED - PWD workers have finished the work
+    6. PARSHAD_REVIEWED - Parshad has reviewed and confirmed fix
+    """
 
     REPORTED = "reported"
-    ASSIGNED = "assigned"  # PWD assigned to Parshad
-    PARSHAD_CHECK = "parshad_check"  # Parshad acknowledged
-    STARTED_WORKING = "started_working"
-    FINISHED_WORK = "finished_work"
+    ASSIGNED = "assigned"  # Auto-assigned to Parshad
+    PARSHAD_ACKNOWLEDGED = "parshad_acknowledged"  # Parshad confirmed issue exists
+    PWD_WORKING = "pwd_working"  # PWD workers started work
+    PWD_COMPLETED = "pwd_completed"  # PWD workers finished work
+    PARSHAD_REVIEWED = "parshad_reviewed"  # Parshad reviewed and closed
+    
+    # Legacy statuses (for backward compatibility)
+    PARSHAD_CHECK = "parshad_check"  # Maps to PARSHAD_ACKNOWLEDGED
+    STARTED_WORKING = "started_working"  # Maps to PWD_WORKING
+    FINISHED_WORK = "finished_work"  # Maps to PARSHAD_REVIEWED
 
 
 class UserRole(str, Enum):
@@ -157,6 +170,9 @@ class User(SQLModel, table=True):
     latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     village_name: Optional[str] = Field(default=None, max_length=255)
+    
+    # Ward assignment (for Parshads - to auto-assign issues from their ward)
+    ward_id: Optional[int] = Field(default=None, index=True)
 
     # Timestamps
     created_at: datetime = Field(

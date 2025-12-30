@@ -41,6 +41,19 @@ export const setUserData = async (userData: any) => {
 // User Roles
 export type UserRole = 'user' | 'parshad' | 'pwd_worker';
 
+// Issue Statuses - New Flow
+export type IssueStatus = 
+  | 'reported'
+  | 'assigned'
+  | 'parshad_acknowledged'
+  | 'pwd_working'
+  | 'pwd_completed'
+  | 'parshad_reviewed'
+  // Legacy statuses
+  | 'parshad_check'
+  | 'started_working'
+  | 'finished_work';
+
 // API Types
 export interface User {
   id: number;
@@ -164,6 +177,21 @@ export interface ParshadDashboardStats {
   total_assigned: number;
   pending_acknowledgement: number;
   in_progress: number;
+  pending_review: number;
+  completed: number;
+  issues_by_type: {
+    water: number;
+    electricity: number;
+    road: number;
+    garbage: number;
+  };
+}
+
+// PWD Worker Types
+export interface PWDWorkerDashboardStats {
+  pending_work: number;
+  in_progress: number;
+  pending_review: number;
   completed: number;
   issues_by_type: {
     water: number;
@@ -624,6 +652,101 @@ class ApiService {
     }
 
     return response.json();
+  }
+
+  // Parshad Review Issue (new flow)
+  async reviewIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/review${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async getParshadPendingReviewIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+
+    const response = await fetch(
+      `${this.baseURL}/api/parshad/issues/pending-review?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  // ==================== PWD Worker APIs ====================
+
+  async getPWDWorkerDashboard(): Promise<PWDWorkerDashboardStats> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/pwd/dashboard/worker`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async getPWDWorkerIssues(params?: {
+    page?: number;
+    page_size?: number;
+    issue_type?: string;
+    filter_type?: 'pending' | 'in_progress' | 'completed';
+  }): Promise<ParshadIssueListResponse> {
+    const headers = await this.getAuthHeaders();
+    
+    const queryParams = new URLSearchParams();
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+    if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
+    if (params?.filter_type) queryParams.append('filter_type', params.filter_type);
+
+    const response = await fetch(
+      `${this.baseURL}/api/pwd/my-issues?${queryParams.toString()}`,
+      {
+        method: 'GET',
+        headers,
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getPWDIssueDetail(issueId: number): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}`, {
+      method: 'GET',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async pwdStartWork(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/start-work${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
+  }
+
+  async pwdCompleteWork(issueId: number, notes?: string): Promise<ParshadIssue> {
+    const headers = await this.getAuthHeaders();
+    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/complete-work${queryParams}`, {
+      method: 'POST',
+      headers,
+    });
+    return this.handleResponse(response);
   }
 }
 

@@ -1,8 +1,8 @@
-"""initial_migration
+"""intitial_migration
 
-Revision ID: a7822be39ba6
+Revision ID: 94501a8c9a86
 Revises: 
-Create Date: 2025-12-29 14:04:34.283684
+Create Date: 2025-12-30 16:44:18.153329
 
 """
 from typing import Sequence, Union
@@ -13,7 +13,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'a7822be39ba6'
+revision: str = '94501a8c9a86'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -44,12 +44,14 @@ def upgrade() -> None:
     sa.Column('latitude', sa.Float(), nullable=True),
     sa.Column('longitude', sa.Float(), nullable=True),
     sa.Column('village_name', sqlmodel.sql.sqltypes.AutoString(length=255), nullable=True),
+    sa.Column('ward_id', sa.Integer(), nullable=True),
     sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=False),
     sa.PrimaryKeyConstraint('id')
     )
     op.create_index(op.f('ix_users_mobile_number'), 'users', ['mobile_number'], unique=True)
     op.create_index(op.f('ix_users_role'), 'users', ['role'], unique=False)
+    op.create_index(op.f('ix_users_ward_id'), 'users', ['ward_id'], unique=False)
     op.create_table('issues',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('issue_type', sa.Enum('water', 'electricity', 'road', 'garbage', name='issuetype'), nullable=False),
@@ -58,7 +60,7 @@ def upgrade() -> None:
     sa.Column('longitude', sa.Float(), nullable=False),
     sa.Column('ward_id', sa.Integer(), nullable=True),
     sa.Column('ward_name', sqlmodel.sql.sqltypes.AutoString(length=200), nullable=True),
-    sa.Column('status', sa.Enum('reported', 'assigned', 'parshad_check', 'started_working', 'finished_work', name='issuestatus'), nullable=False),
+    sa.Column('status', sa.Enum('reported', 'assigned', 'parshad_acknowledged', 'pwd_working', 'pwd_completed', 'parshad_reviewed', 'parshad_check', 'started_working', 'finished_work', name='issuestatus'), nullable=False),
     sa.Column('user_id', sa.Integer(), nullable=True),
     sa.Column('assigned_parshad_id', sa.Integer(), nullable=True),
     sa.Column('assignment_notes', sqlmodel.sql.sqltypes.AutoString(length=1000), nullable=True),
@@ -100,6 +102,7 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_issues_issue_type'), table_name='issues')
     op.drop_index(op.f('ix_issues_assigned_parshad_id'), table_name='issues')
     op.drop_table('issues')
+    op.drop_index(op.f('ix_users_ward_id'), table_name='users')
     op.drop_index(op.f('ix_users_role'), table_name='users')
     op.drop_index(op.f('ix_users_mobile_number'), table_name='users')
     op.drop_table('users')

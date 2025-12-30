@@ -307,9 +307,19 @@ export default function IssuesPage() {
                       </TableCell>
                       <TableCell>
                         {issue.assigned_parshad ? (
-                          <span className="text-sm">{issue.assigned_parshad.name}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm">{issue.assigned_parshad.name}</span>
+                            {issue.assignment_message && (
+                              <span className="text-xs text-muted-foreground">{issue.assignment_message}</span>
+                            )}
+                          </div>
                         ) : (
-                          <span className="text-muted-foreground text-sm">Not assigned</span>
+                          <div className="flex flex-col">
+                            <span className="text-muted-foreground text-sm">Not assigned</span>
+                            {issue.assignment_message && (
+                              <span className="text-xs text-orange-600">{issue.assignment_message}</span>
+                            )}
+                          </div>
                         )}
                       </TableCell>
                       <TableCell>
@@ -479,6 +489,18 @@ export default function IssuesPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Assigned Parshad</p>
                   <p className="font-medium">{detailIssue.assigned_parshad.name}</p>
+                  {detailIssue.assigned_parshad.ward_number && (
+                    <p className="text-sm text-muted-foreground">Ward {detailIssue.assigned_parshad.ward_number}</p>
+                  )}
+                </div>
+              )}
+
+              {detailIssue.assignment_message && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Assignment Status</p>
+                  <p className={`text-sm ${detailIssue.assigned_parshad ? 'text-green-600' : 'text-orange-600'}`}>
+                    {detailIssue.assignment_message}
+                  </p>
                 </div>
               )}
 

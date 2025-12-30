@@ -19,6 +19,7 @@ export interface ParshadInfo {
   phone?: string;
   mobile_number?: string;
   ward_number?: number;
+  ward_id?: number; // Added for backend compatibility
   assigned_issues_count?: number;
 }
 
@@ -36,6 +37,7 @@ export interface Issue {
   assigned_parshad_id?: number;
   assigned_parshad?: ParshadInfo;
   assignment_notes?: string;
+  assignment_message?: string; // Auto-assignment status message
   progress_notes?: string;
   created_at: string;
   updated_at?: string;
@@ -207,6 +209,7 @@ export const createParshad = async (data: {
       name: data.name,
       mobile_number: data.phone, // API expects mobile_number
       ward_number: data.ward_number,
+      ward_id: data.ward_number, // Also send ward_id for backend compatibility
     }),
   });
   return handleResponse(response);

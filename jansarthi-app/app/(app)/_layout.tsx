@@ -27,6 +27,8 @@ export default function AppLayout() {
       <Stack.Screen name="map-view" />
       <Stack.Screen name="parshad-dashboard" />
       <Stack.Screen name="parshad-issue-detail" />
+      <Stack.Screen name="pwd-dashboard" />
+      <Stack.Screen name="pwd-issue-detail" />
     </Stack>
   );
 }

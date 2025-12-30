@@ -64,6 +64,7 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
                 name=parshad.name,
                 mobile_number=parshad.mobile_number,
                 village_name=parshad.village_name,
+                ward_id=parshad.ward_id,
                 latitude=parshad.latitude,
                 longitude=parshad.longitude,
             )
@@ -119,16 +120,26 @@ async def get_pwd_dashboard(
         select(func.count(Issue.id)).where(Issue.status == IssueStatus.ASSIGNED)
     ).one()
     
-    # In progress (parshad_check or started_working)
+    # In progress (parshad_acknowledged or pwd_working)
     in_progress_issues = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.status.in_([IssueStatus.PARSHAD_CHECK, IssueStatus.STARTED_WORKING])
+            Issue.status.in_([
+                IssueStatus.PARSHAD_ACKNOWLEDGED, 
+                IssueStatus.PWD_WORKING,
+                IssueStatus.PARSHAD_CHECK,  # Legacy
+                IssueStatus.STARTED_WORKING  # Legacy
+            ])
         )
     ).one()
     
-    # Completed
+    # Completed (parshad reviewed/closed)
     completed_issues = session.exec(
-        select(func.count(Issue.id)).where(Issue.status == IssueStatus.FINISHED_WORK)
+        select(func.count(Issue.id)).where(
+            Issue.status.in_([
+                IssueStatus.PARSHAD_REVIEWED,
+                IssueStatus.FINISHED_WORK  # Legacy
+            ])
+        )
     ).one()
     
     # Total Parshads
@@ -284,6 +295,253 @@ async def get_issue_detail(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Issue with id {issue_id} not found"
         )
+    
+    return build_issue_response(issue, session)
+
+
+# ==================== PWD Worker Issue Actions ====================
+
+@pwd_router.get(
+    "/my-issues",
+    response_model=AdminIssueListResponse,
+    summary="Get issues for PWD workers to work on",
+)
+async def get_pwd_worker_issues(
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(20, ge=1, le=100, description="Items per page"),
+    issue_type: Optional[IssueType] = Query(None, description="Filter by issue type"),
+    filter_type: Optional[str] = Query(None, description="Filter: pending, in_progress, completed"),
+    pwd_user: User = Depends(get_pwd_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Get issues that are ready for PWD workers to work on.
+    
+    These are issues where Parshad has acknowledged the problem.
+    """
+    query = select(Issue)
+    count_query = select(func.count(Issue.id))
+    
+    # Filter by type
+    if filter_type == "pending":
+        # Issues acknowledged by Parshad, waiting for PWD work
+        query = query.where(
+            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+        )
+        count_query = count_query.where(
+            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+        )
+    elif filter_type == "in_progress":
+        # Issues PWD is working on
+        query = query.where(
+            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+        )
+        count_query = count_query.where(
+            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+        )
+    elif filter_type == "completed":
+        # Issues PWD has completed (waiting for Parshad review)
+        query = query.where(Issue.status == IssueStatus.PWD_COMPLETED)
+        count_query = count_query.where(Issue.status == IssueStatus.PWD_COMPLETED)
+    else:
+        # All issues that PWD can see (acknowledged onwards)
+        query = query.where(
+            Issue.status.in_([
+                IssueStatus.PARSHAD_ACKNOWLEDGED,
+                IssueStatus.PWD_WORKING,
+                IssueStatus.PWD_COMPLETED,
+                IssueStatus.PARSHAD_CHECK,  # Legacy
+                IssueStatus.STARTED_WORKING  # Legacy
+            ])
+        )
+        count_query = count_query.where(
+            Issue.status.in_([
+                IssueStatus.PARSHAD_ACKNOWLEDGED,
+                IssueStatus.PWD_WORKING,
+                IssueStatus.PWD_COMPLETED,
+                IssueStatus.PARSHAD_CHECK,
+                IssueStatus.STARTED_WORKING
+            ])
+        )
+    
+    if issue_type:
+        query = query.where(Issue.issue_type == issue_type)
+        count_query = count_query.where(Issue.issue_type == issue_type)
+    
+    total = session.exec(count_query).one()
+    
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size).order_by(Issue.updated_at.desc())
+    
+    issues = session.exec(query).all()
+    items = [build_issue_response(issue, session) for issue in issues]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+    
+    return AdminIssueListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )
+
+
+@pwd_router.get(
+    "/dashboard/worker",
+    summary="Get PWD Worker specific dashboard stats",
+)
+async def get_pwd_worker_dashboard(
+    pwd_user: User = Depends(get_pwd_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Get dashboard statistics specifically for PWD field workers.
+    """
+    # Pending work (Parshad acknowledged, waiting for PWD)
+    pending_work = session.exec(
+        select(func.count(Issue.id)).where(
+            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+        )
+    ).one()
+    
+    # In progress (PWD working)
+    in_progress = session.exec(
+        select(func.count(Issue.id)).where(
+            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+        )
+    ).one()
+    
+    # Completed by PWD (waiting for Parshad review)
+    pending_review = session.exec(
+        select(func.count(Issue.id)).where(Issue.status == IssueStatus.PWD_COMPLETED)
+    ).one()
+    
+    # Reviewed and closed
+    completed = session.exec(
+        select(func.count(Issue.id)).where(
+            Issue.status.in_([IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK])
+        )
+    ).one()
+    
+    # Issues by type (for pending work)
+    issues_by_type = {}
+    for issue_type in IssueType:
+        count = session.exec(
+            select(func.count(Issue.id)).where(
+                Issue.issue_type == issue_type,
+                Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+            )
+        ).one()
+        issues_by_type[issue_type.value] = count
+    
+    return {
+        "pending_work": pending_work,
+        "in_progress": in_progress,
+        "pending_review": pending_review,
+        "completed": completed,
+        "issues_by_type": issues_by_type,
+    }
+
+
+@pwd_router.post(
+    "/issues/{issue_id}/start-work",
+    response_model=AdminIssueResponse,
+    summary="PWD worker starts working on an issue",
+)
+async def pwd_start_work(
+    issue_id: int,
+    notes: Optional[str] = Query(None, description="Work notes"),
+    pwd_user: User = Depends(get_pwd_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Mark that PWD workers have started working on the issue.
+    
+    The issue must be in PARSHAD_ACKNOWLEDGED status (Parshad has confirmed it exists).
+    """
+    from datetime import timezone
+    
+    issue = session.get(Issue, issue_id)
+    
+    if not issue:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Issue with id {issue_id} not found"
+        )
+    
+    # Check valid status transition
+    if issue.status not in [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot start work on issue with status {issue.status.value}. "
+                   f"Issue must be acknowledged by Parshad first."
+        )
+    
+    issue.status = IssueStatus.PWD_WORKING
+    
+    if notes:
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        new_note = f"[{timestamp}] PWD Started: {notes}"
+        
+        if issue.progress_notes:
+            issue.progress_notes = f"{issue.progress_notes}\n\n{new_note}"
+        else:
+            issue.progress_notes = new_note
+    
+    session.add(issue)
+    session.commit()
+    session.refresh(issue)
+    
+    return build_issue_response(issue, session)
+
+
+@pwd_router.post(
+    "/issues/{issue_id}/complete-work",
+    response_model=AdminIssueResponse,
+    summary="PWD worker completes work on an issue",
+)
+async def pwd_complete_work(
+    issue_id: int,
+    notes: Optional[str] = Query(None, description="Completion notes"),
+    pwd_user: User = Depends(get_pwd_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Mark that PWD workers have completed work on the issue.
+    
+    The issue will then need to be reviewed by the Parshad for final closure.
+    """
+    from datetime import timezone
+    
+    issue = session.get(Issue, issue_id)
+    
+    if not issue:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Issue with id {issue_id} not found"
+        )
+    
+    # Check valid status transition
+    if issue.status not in [IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot complete issue with status {issue.status.value}. "
+                   f"Work must be started first."
+        )
+    
+    issue.status = IssueStatus.PWD_COMPLETED
+    
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    completion_note = f"[{timestamp}] PWD Completed: {notes or 'Work finished'}"
+    
+    if issue.progress_notes:
+        issue.progress_notes = f"{issue.progress_notes}\n\n{completion_note}"
+    else:
+        issue.progress_notes = completion_note
+    
+    session.add(issue)
+    session.commit()
+    session.refresh(issue)
     
     return build_issue_response(issue, session)
 
@@ -444,6 +702,8 @@ async def create_parshad(
             existing_user.is_verified = True
             if parshad_data.village_name:
                 existing_user.village_name = parshad_data.village_name
+            if parshad_data.ward_id is not None:
+                existing_user.ward_id = parshad_data.ward_id
             if parshad_data.latitude is not None:
                 existing_user.latitude = parshad_data.latitude
             if parshad_data.longitude is not None:
@@ -461,6 +721,7 @@ async def create_parshad(
                 is_active=existing_user.is_active,
                 is_verified=existing_user.is_verified,
                 village_name=existing_user.village_name,
+                ward_id=existing_user.ward_id,
                 latitude=existing_user.latitude,
                 longitude=existing_user.longitude,
                 created_at=existing_user.created_at,
@@ -477,6 +738,7 @@ async def create_parshad(
         is_active=True,
         is_verified=True,  # Pre-verified by PWD
         village_name=parshad_data.village_name,
+        ward_id=parshad_data.ward_id,
         latitude=parshad_data.latitude,
         longitude=parshad_data.longitude,
     )
@@ -493,6 +755,7 @@ async def create_parshad(
         is_active=new_parshad.is_active,
         is_verified=new_parshad.is_verified,
         village_name=new_parshad.village_name,
+        ward_id=new_parshad.ward_id,
         latitude=new_parshad.latitude,
         longitude=new_parshad.longitude,
         created_at=new_parshad.created_at,
@@ -534,6 +797,7 @@ async def get_all_parshads(
             name=p.name,
             mobile_number=p.mobile_number,
             village_name=p.village_name,
+            ward_id=p.ward_id,
             latitude=p.latitude,
             longitude=p.longitude,
         )

@@ -22,6 +22,11 @@ class IssueCountByStatus(BaseModel):
     """Count of issues by status"""
     reported: int = 0
     assigned: int = 0
+    parshad_acknowledged: int = 0
+    pwd_working: int = 0
+    pwd_completed: int = 0
+    parshad_reviewed: int = 0
+    # Legacy support
     parshad_check: int = 0
     started_working: int = 0
     finished_work: int = 0
@@ -35,6 +40,7 @@ class ParshadInfo(BaseModel):
     name: str
     mobile_number: str
     village_name: Optional[str] = None
+    ward_id: Optional[int] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     
@@ -67,6 +73,7 @@ class AdminUserResponse(BaseModel):
     is_active: bool
     is_verified: bool
     village_name: Optional[str] = None
+    ward_id: Optional[int] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     created_at: datetime
@@ -92,6 +99,7 @@ class UserRoleUpdate(BaseModel):
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
     village_name: Optional[str] = Field(None, max_length=255)
+    ward_id: Optional[int] = Field(None, description="Ward ID for Parshad assignment")
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
 
@@ -164,6 +172,7 @@ class CreateParshadRequest(BaseModel):
         description="Mobile number with country code (e.g., +919876543210)"
     )
     village_name: Optional[str] = Field(None, max_length=255)
+    ward_id: Optional[int] = Field(None, description="Ward ID this Parshad is responsible for")
     latitude: Optional[float] = Field(None, ge=-90, le=90)
     longitude: Optional[float] = Field(None, ge=-180, le=180)
 
@@ -186,8 +195,9 @@ class ParshadDashboardStats(BaseModel):
     """Dashboard statistics for Parshad"""
     total_assigned: int
     pending_acknowledgement: int  # Status = ASSIGNED
-    in_progress: int  # Status = PARSHAD_CHECK or STARTED_WORKING
-    completed: int  # Status = FINISHED_WORK
+    in_progress: int  # Status = PARSHAD_ACKNOWLEDGED or PWD_WORKING
+    pending_review: int = 0  # Status = PWD_COMPLETED (needs Parshad review)
+    completed: int  # Status = PARSHAD_REVIEWED
     issues_by_type: IssueCountByType
 
 

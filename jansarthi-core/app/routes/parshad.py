@@ -58,6 +58,7 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
                 name=parshad.name,
                 mobile_number=parshad.mobile_number,
                 village_name=parshad.village_name,
+                ward_id=parshad.ward_id,
                 latitude=parshad.latitude,
                 longitude=parshad.longitude,
             )
@@ -112,19 +113,32 @@ async def get_parshad_dashboard(
         )
     ).one()
     
-    # In progress (PARSHAD_CHECK or STARTED_WORKING)
+    # In progress (PARSHAD_ACKNOWLEDGED, PWD_WORKING, or legacy statuses)
     in_progress = session.exec(
         select(func.count(Issue.id)).where(
             Issue.assigned_parshad_id == parshad_id,
-            Issue.status.in_([IssueStatus.PARSHAD_CHECK, IssueStatus.STARTED_WORKING])
+            Issue.status.in_([
+                IssueStatus.PARSHAD_ACKNOWLEDGED,
+                IssueStatus.PWD_WORKING,
+                IssueStatus.PARSHAD_CHECK,  # Legacy
+                IssueStatus.STARTED_WORKING  # Legacy
+            ])
         )
     ).one()
     
-    # Completed
+    # Pending review (PWD_COMPLETED - needs Parshad to verify)
+    pending_review = session.exec(
+        select(func.count(Issue.id)).where(
+            Issue.assigned_parshad_id == parshad_id,
+            Issue.status == IssueStatus.PWD_COMPLETED
+        )
+    ).one()
+    
+    # Completed (PARSHAD_REVIEWED or legacy FINISHED_WORK)
     completed = session.exec(
         select(func.count(Issue.id)).where(
             Issue.assigned_parshad_id == parshad_id,
-            Issue.status == IssueStatus.FINISHED_WORK
+            Issue.status.in_([IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK])
         )
     ).one()
     
@@ -143,6 +157,7 @@ async def get_parshad_dashboard(
         total_assigned=total_assigned,
         pending_acknowledgement=pending_acknowledgement,
         in_progress=in_progress,
+        pending_review=pending_review,
         completed=completed,
         issues_by_type=issues_by_type,
     )
@@ -365,17 +380,23 @@ async def update_issue_status(
             detail="This issue is not assigned to you"
         )
     
-    # Validate status transition
+    # Validate status transition - NEW FLOW
+    # Parshad can:
+    # 1. Acknowledge issue (ASSIGNED -> PARSHAD_ACKNOWLEDGED)
+    # 2. Review completed work (PWD_COMPLETED -> PARSHAD_REVIEWED)
     valid_transitions = {
-        IssueStatus.ASSIGNED: [IssueStatus.PARSHAD_CHECK],
+        IssueStatus.ASSIGNED: [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK],
+        IssueStatus.PWD_COMPLETED: [IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK],
+        IssueStatus.PARSHAD_REVIEWED: [],  # Cannot change after completion
+        # Legacy transitions
         IssueStatus.PARSHAD_CHECK: [IssueStatus.STARTED_WORKING],
         IssueStatus.STARTED_WORKING: [IssueStatus.FINISHED_WORK],
-        IssueStatus.FINISHED_WORK: [],  # Cannot change after completion
+        IssueStatus.FINISHED_WORK: [],
     }
     
-    # Also allow REPORTED -> PARSHAD_CHECK for backward compatibility
+    # Also allow REPORTED -> PARSHAD_ACKNOWLEDGED for backward compatibility
     if issue.status == IssueStatus.REPORTED:
-        valid_transitions[IssueStatus.REPORTED] = [IssueStatus.PARSHAD_CHECK]
+        valid_transitions[IssueStatus.REPORTED] = [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK]
     
     allowed_statuses = valid_transitions.get(issue.status, [])
     
@@ -570,11 +591,11 @@ async def acknowledge_issue(
             detail=f"Issue is already acknowledged (status: {issue.status.value})"
         )
     
-    issue.status = IssueStatus.PARSHAD_CHECK
+    issue.status = IssueStatus.PARSHAD_ACKNOWLEDGED
     
     # Add acknowledgement note
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    ack_note = f"[{timestamp}] Issue acknowledged by Parshad"
+    ack_note = f"[{timestamp}] Issue acknowledged by Parshad - Problem confirmed to exist"
     issue.progress_notes = ack_note
     
     session.add(issue)
@@ -694,3 +715,107 @@ async def complete_issue(
     session.refresh(issue)
     
     return build_issue_response(issue, session)
+
+
+@parshad_router.post(
+    "/issues/{issue_id}/review",
+    response_model=AdminIssueResponse,
+    summary="Review and close PWD completed work",
+)
+async def review_issue(
+    issue_id: int,
+    notes: Optional[str] = Query(None, description="Review notes"),
+    parshad_user: User = Depends(get_parshad_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Review and approve PWD completed work.
+    
+    This is the final step in the new flow where Parshad verifies 
+    that PWD workers have successfully fixed the issue.
+    
+    Changes status from PWD_COMPLETED to PARSHAD_REVIEWED.
+    """
+    issue = session.get(Issue, issue_id)
+    
+    if not issue:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail=f"Issue with id {issue_id} not found"
+        )
+    
+    if issue.assigned_parshad_id != parshad_user.id:
+        raise HTTPException(
+            status_code=http_status.HTTP_403_FORBIDDEN,
+            detail="This issue is not assigned to you"
+        )
+    
+    if issue.status != IssueStatus.PWD_COMPLETED:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot review from status: {issue.status.value}. Issue must be completed by PWD first."
+        )
+    
+    issue.status = IssueStatus.PARSHAD_REVIEWED
+    
+    # Add review note
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    note = f"[{timestamp}] Parshad Review: Work verified and issue closed"
+    if notes:
+        note += f" - {notes}"
+    
+    if issue.progress_notes:
+        issue.progress_notes = f"{issue.progress_notes}\n\n{note}"
+    else:
+        issue.progress_notes = note
+    
+    session.add(issue)
+    session.commit()
+    session.refresh(issue)
+    
+    return build_issue_response(issue, session)
+
+
+@parshad_router.get(
+    "/issues/pending-review",
+    response_model=AdminIssueListResponse,
+    summary="Get issues pending Parshad review",
+)
+async def get_pending_review_issues(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    parshad_user: User = Depends(get_parshad_user),
+    session: Session = Depends(get_session),
+):
+    """
+    Get issues where PWD has completed work and waiting for Parshad review.
+    
+    These are issues with status = PWD_COMPLETED.
+    """
+    parshad_id = parshad_user.id
+    
+    query = select(Issue).where(
+        Issue.assigned_parshad_id == parshad_id,
+        Issue.status == IssueStatus.PWD_COMPLETED
+    )
+    count_query = select(func.count(Issue.id)).where(
+        Issue.assigned_parshad_id == parshad_id,
+        Issue.status == IssueStatus.PWD_COMPLETED
+    )
+    
+    total = session.exec(count_query).one()
+    
+    offset = (page - 1) * page_size
+    query = query.offset(offset).limit(page_size).order_by(Issue.updated_at.desc())
+    
+    issues = session.exec(query).all()
+    items = [build_issue_response(issue, session) for issue in issues]
+    total_pages = math.ceil(total / page_size) if total > 0 else 1
+    
+    return AdminIssueListResponse(
+        items=items,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+    )

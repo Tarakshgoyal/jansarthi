@@ -22,22 +22,40 @@ interface StatusTrackerProps {
 const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt }) => {
   const { t, language, getText } = useLanguage();
 
-  // The stages now include 'assigned' which maps to 'parshad' visually
-  // assigned = PWD assigned to Parshad, parshad_check = Parshad acknowledged
+  // New flow stages:
+  // 1. Reported
+  // 2. Parshad Acknowledged (parshad assigned and confirmed issue exists)
+  // 3. PWD Working (PWD workers are fixing the issue)
+  // 4. Issue Resolved (Parshad reviewed and closed)
   const stages = [
     { key: 'reported', label: getText(t.status.reported) },
-    { key: 'assigned', label: getText(t.status.parshad) }, // assigned = Parshad assigned
-    { key: 'started_working', label: getText(t.status.pwdClerkStartedWorking) },
-    { key: 'finished_work', label: getText(t.status.finishedWorking) },
+    { key: 'parshad_acknowledged', label: getText(t.status.parshad) },
+    { key: 'pwd_working', label: getText(t.status.pwdClerkStartedWorking) },
+    { key: 'parshad_reviewed', label: getText(t.status.finishedWorking) },
   ];
 
   const getCurrentStageIndex = () => {
     const status = currentStatus?.toLowerCase();
-    // Map parshad_check to assigned stage (both mean Parshad is involved)
-    if (status === 'parshad_check') {
-      return stages.findIndex(stage => stage.key === 'assigned');
+    
+    // Map all statuses to appropriate stage
+    switch (status) {
+      case 'reported':
+        return 0;
+      case 'assigned':
+      case 'parshad_acknowledged':
+      case 'parshad_check':
+        return 1;
+      case 'pwd_working':
+      case 'started_working':
+        return 2;
+      case 'pwd_completed':
+        return 2; // Still in PWD stage visually, but almost done
+      case 'parshad_reviewed':
+      case 'finished_work':
+        return 3;
+      default:
+        return 0;
     }
-    return stages.findIndex(stage => stage.key === status);
   };
 
   const currentStageIndex = getCurrentStageIndex();

@@ -33,6 +33,10 @@ JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = int(os.getenv("JWT_REFRESH_TOKEN_EXPIRE_DAY
 OTP_EXPIRY_MINUTES: int = int(os.getenv("OTP_EXPIRY_MINUTES", "10"))  # 10 minutes
 OTP_LENGTH: int = 6
 
+# Development Mode - when True, uses default OTP 999999 instead of sending real OTP
+DEV_MODE: bool = os.getenv("DEV_MODE", "false").lower() == "true"
+DEV_DEFAULT_OTP: str = "999999"
+
 # Database URL
 DATABASE_URL: str = (
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@"
@@ -75,6 +79,10 @@ class Settings:
     # OTP
     otp_expiry_minutes: int = OTP_EXPIRY_MINUTES
     otp_length: int = OTP_LENGTH
+    
+    # Development Mode
+    dev_mode: bool = DEV_MODE
+    dev_default_otp: str = DEV_DEFAULT_OTP
 
 
 @lru_cache()

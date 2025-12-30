@@ -184,7 +184,7 @@ export const ParshadDashboard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"pending" | "in_progress" | "completed" | "all">("pending");
+  const [activeTab, setActiveTab] = useState<"pending" | "in_progress" | "pending_review" | "completed" | "all">("pending");
 
   const fetchData = useCallback(async () => {
     try {
@@ -195,12 +195,14 @@ export const ParshadDashboard: React.FC = () => {
           ? apiService.getParshadPendingIssues({ page: 1, page_size: 50 })
           : activeTab === "in_progress"
           ? apiService.getParshadInProgressIssues({ page: 1, page_size: 50 })
+          : activeTab === "pending_review"
+          ? apiService.getParshadPendingReviewIssues({ page: 1, page_size: 50 })
           : apiService.getParshadIssues({
               page: 1,
               page_size: 50,
               status:
                 activeTab === "completed"
-                  ? "finished_work"
+                  ? "parshad_reviewed"
                   : undefined,
             }),
       ]);
@@ -241,6 +243,7 @@ export const ParshadDashboard: React.FC = () => {
   const tabs = [
     { key: "pending", label: getText(t.parshad.issues.pending), count: stats?.pending_acknowledgement || 0 },
     { key: "in_progress", label: getText(t.parshad.issues.inProgress), count: stats?.in_progress || 0 },
+    { key: "pending_review", label: getText(t.parshad.issues.pendingReview), count: stats?.pending_review || 0 },
     { key: "completed", label: getText(t.parshad.issues.completed), count: stats?.completed || 0 },
     { key: "all", label: getText(t.parshad.issues.all), count: stats?.total_assigned || 0 },
   ] as const;

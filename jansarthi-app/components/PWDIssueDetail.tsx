@@ -18,6 +18,8 @@ import {
   Clock,
   Construction,
   Droplet,
+  HardHat,
+  MapPin,
   PlayCircle,
   RefreshCw,
   Trash2,
@@ -36,7 +38,7 @@ import {
   View,
 } from "react-native";
 
-export const ParshadIssueDetail: React.FC = () => {
+export const PWDIssueDetail: React.FC = () => {
   const { t, getText } = useLanguage();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -46,15 +48,15 @@ export const ParshadIssueDetail: React.FC = () => {
   const [isActionLoading, setIsActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // For status update with photos
-  const [progressNotes, setProgressNotes] = useState("");
-  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
-  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  // For work completion with notes
+  const [workNotes, setWorkNotes] = useState("");
+  const [showCompletionForm, setShowCompletionForm] = useState(false);
   
   // Camera state
   const [showCamera, setShowCamera] = useState(false);
   const [facing, setFacing] = useState<CameraType>("back");
   const [permission, requestPermission] = useCameraPermissions();
+  const [selectedPhotos, setSelectedPhotos] = useState<string[]>([]);
   const cameraRef = useRef<CameraView>(null);
 
   const handleTakePhoto = async () => {
@@ -92,8 +94,7 @@ export const ParshadIssueDetail: React.FC = () => {
     try {
       setError(null);
       setIsLoading(true);
-      // Fetch the specific issue using the detail API
-      const foundIssue = await apiService.getParshadIssueDetail(parseInt(id));
+      const foundIssue = await apiService.getPWDIssueDetail(parseInt(id));
       setIssue(foundIssue);
     } catch (err) {
       console.error("Failed to fetch issue:", err);
@@ -139,16 +140,14 @@ export const ParshadIssueDetail: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "assigned":
-        return { bg: "bg-warning-100", text: "text-warning-700" };
       case "parshad_acknowledged":
       case "parshad_check":
-        return { bg: "bg-info-100", text: "text-info-700" };
+        return { bg: "bg-warning-100", text: "text-warning-700" };
       case "pwd_working":
       case "started_working":
         return { bg: "bg-primary-100", text: "text-primary-700" };
       case "pwd_completed":
-        return { bg: "bg-amber-100", text: "text-amber-700" };
+        return { bg: "bg-info-100", text: "text-info-700" };
       case "parshad_reviewed":
       case "finished_work":
         return { bg: "bg-success-100", text: "text-success-700" };
@@ -159,93 +158,38 @@ export const ParshadIssueDetail: React.FC = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "assigned":
-        return getText(t.status.assigned);
       case "parshad_acknowledged":
       case "parshad_check":
-        return getText(t.status.parshadCheck);
+        return getText(t.pwd.status.pendingWork);
       case "pwd_working":
       case "started_working":
-        return getText(t.status.startedWorking);
+        return getText(t.pwd.status.inProgress);
       case "pwd_completed":
-        return getText(t.parshad.status.pendingReview);
+        return getText(t.pwd.status.pendingReview);
       case "parshad_reviewed":
       case "finished_work":
-        return getText(t.status.finishedWork);
+        return getText(t.pwd.status.completed);
       default:
         return status;
     }
-  };
-
-  const handleAcknowledge = async () => {
-    if (!issue) return;
-
-    Alert.alert(
-      getText(t.parshad.issues.acknowledge),
-      getText(t.parshad.status.acknowledgeConfirm),
-      [
-        { text: getText(t.actions.cancel), style: "cancel" },
-        {
-          text: getText(t.parshad.issues.acknowledge),
-          onPress: async () => {
-            try {
-              setIsActionLoading(true);
-              await apiService.acknowledgeIssue(issue.id);
-              await fetchIssue();
-              Alert.alert("Success", getText(t.parshad.status.statusUpdated));
-            } catch (err) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Failed to acknowledge");
-            } finally {
-              setIsActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
-  };
-
-  const handleReviewAndClose = async () => {
-    if (!issue) return;
-
-    Alert.alert(
-      getText(t.parshad.issues.reviewAndClose),
-      getText(t.parshad.status.reviewConfirm),
-      [
-        { text: getText(t.actions.cancel), style: "cancel" },
-        {
-          text: getText(t.parshad.issues.reviewAndClose),
-          onPress: async () => {
-            try {
-              setIsActionLoading(true);
-              await apiService.reviewIssue(issue.id);
-              await fetchIssue();
-              Alert.alert("Success", getText(t.parshad.status.issueResolved));
-            } catch (err) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Failed to review");
-            } finally {
-              setIsActionLoading(false);
-            }
-          },
-        },
-      ]
-    );
   };
 
   const handleStartWork = async () => {
     if (!issue) return;
 
     Alert.alert(
-      getText(t.parshad.issues.startWork),
-      getText(t.parshad.status.startWorkConfirm),
+      getText(t.pwd.issues.startWork),
+      getText(t.pwd.status.startWorkConfirm),
       [
         { text: getText(t.actions.cancel), style: "cancel" },
         {
-          text: getText(t.parshad.issues.startWork),
+          text: getText(t.pwd.issues.startWork),
           onPress: async () => {
             try {
               setIsActionLoading(true);
-              await apiService.startWorkOnIssue(issue.id);
+              await apiService.pwdStartWork(issue.id);
               await fetchIssue();
+              Alert.alert("Success", getText(t.pwd.status.statusUpdated));
             } catch (err) {
               Alert.alert("Error", err instanceof Error ? err.message : "Failed to start work");
             } finally {
@@ -261,45 +205,27 @@ export const ParshadIssueDetail: React.FC = () => {
     setSelectedPhotos((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleCompleteWithPhotos = async () => {
+  const handleCompleteWork = async () => {
     if (!issue) return;
 
-    if (selectedPhotos.length === 0) {
-      Alert.alert("Photos Required", "Please add at least one photo as proof of work completion");
-      return;
-    }
-
     Alert.alert(
-      getText(t.parshad.issues.markComplete),
-      getText(t.parshad.status.completeConfirm),
+      getText(t.pwd.issues.completeWork),
+      getText(t.pwd.status.completeWorkConfirm),
       [
         { text: getText(t.actions.cancel), style: "cancel" },
         {
-          text: getText(t.parshad.issues.markComplete),
+          text: getText(t.pwd.issues.completeWork),
           onPress: async () => {
             try {
               setIsActionLoading(true);
-              
-              // Convert photo URIs to the expected format
-              const photos = selectedPhotos.map((uri, index) => ({
-                uri,
-                name: `photo_${index}.jpg`,
-                type: 'image/jpeg',
-              }));
-              
-              await apiService.updateIssueWithPhotos({
-                issueId: issue.id,
-                status: "finished_work",
-                progress_notes: progressNotes || undefined,
-                photos,
-              });
+              await apiService.pwdCompleteWork(issue.id, workNotes || undefined);
+              setWorkNotes("");
               setSelectedPhotos([]);
-              setProgressNotes("");
-              setShowUpdateForm(false);
+              setShowCompletionForm(false);
               await fetchIssue();
-              Alert.alert("Success", getText(t.parshad.status.statusUpdated));
+              Alert.alert("Success", getText(t.pwd.status.statusUpdated));
             } catch (err) {
-              Alert.alert("Error", err instanceof Error ? err.message : "Failed to complete");
+              Alert.alert("Error", err instanceof Error ? err.message : "Failed to complete work");
             } finally {
               setIsActionLoading(false);
             }
@@ -312,7 +238,7 @@ export const ParshadIssueDetail: React.FC = () => {
   if (isLoading) {
     return (
       <View className="flex-1 justify-center items-center bg-background-50">
-        <ActivityIndicator size="large" color="#2563eb" />
+        <ActivityIndicator size="large" color="#d97706" />
         <Text className="mt-4 text-typography-600">Loading...</Text>
       </View>
     );
@@ -321,13 +247,13 @@ export const ParshadIssueDetail: React.FC = () => {
   if (error || !issue) {
     return (
       <View className="flex-1 bg-background-50">
-        <View className="bg-brand-500 px-6 pt-16 pb-6">
+        <View className="bg-amber-600 px-6 pt-16 pb-6">
           <HStack className="items-center" space="md">
             <Pressable onPress={() => router.back()} className="p-2">
               <ArrowLeft size={24} color="#fff" />
             </Pressable>
             <Heading size="lg" className="text-typography-white">
-              {getText(t.parshad.issueDetail.title)}
+              {getText(t.pwd.issueDetail.title)}
             </Heading>
           </HStack>
         </View>
@@ -336,7 +262,7 @@ export const ParshadIssueDetail: React.FC = () => {
           <Text className="text-error-700 text-center">{error || "Issue not found"}</Text>
           <Pressable
             onPress={fetchIssue}
-            className="mt-4 bg-primary-500 rounded-lg px-6 py-3"
+            className="mt-4 bg-amber-600 rounded-lg px-6 py-3"
           >
             <Text className="text-typography-white">{getText(t.actions.tryAgain)}</Text>
           </Pressable>
@@ -348,23 +274,20 @@ export const ParshadIssueDetail: React.FC = () => {
   const Icon = getIssueTypeIcon(issue.issue_type);
   const statusColors = getStatusColor(issue.status);
 
-  // New flow: Parshad can only acknowledge and review (not start/complete work)
-  const canAcknowledge = issue.status === "assigned";
-  const canReview = issue.status === "pwd_completed";
-  // Legacy support
-  const canStartWork = issue.status === "parshad_check" || issue.status === "parshad_acknowledged";
-  const canComplete = issue.status === "started_working" || issue.status === "pwd_working";
+  const canStartWork = issue.status === "parshad_acknowledged" || issue.status === "parshad_check";
+  const canCompleteWork = issue.status === "pwd_working" || issue.status === "started_working";
+  const isCompleted = issue.status === "pwd_completed" || issue.status === "parshad_reviewed" || issue.status === "finished_work";
 
   return (
     <View className="flex-1 bg-background-50">
       {/* Header */}
-      <View className="bg-brand-500 px-6 pt-16 pb-6">
+      <View className="bg-amber-600 px-6 pt-16 pb-6">
         <HStack className="items-center" space="md">
           <Pressable onPress={() => router.back()} className="p-2">
             <ArrowLeft size={24} color="#fff" />
           </Pressable>
           <Heading size="lg" className="text-typography-white flex-1">
-            {getText(t.parshad.issueDetail.title)}
+            {getText(t.pwd.issueDetail.title)}
           </Heading>
         </HStack>
       </View>
@@ -374,8 +297,8 @@ export const ParshadIssueDetail: React.FC = () => {
         <View className="px-4 -mt-4">
           <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
             <HStack className="items-center" space="md">
-              <Box className="bg-primary-50 rounded-xl p-4">
-                <Icon size={32} className="text-primary-600" />
+              <Box className="bg-amber-50 rounded-xl p-4">
+                <Icon size={32} className="text-amber-600" />
               </Box>
               <VStack className="flex-1" space="xs">
                 <Heading size="lg" className="text-typography-900">
@@ -401,6 +324,32 @@ export const ParshadIssueDetail: React.FC = () => {
           </Box>
         </View>
 
+        {/* Parshad Info */}
+        {issue.assigned_parshad && (
+          <View className="px-4 mt-4">
+            <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
+              <HStack className="items-center" space="md">
+                <Box className="bg-brand-50 rounded-full p-3">
+                  <User size={20} className="text-brand-600" />
+                </Box>
+                <VStack className="flex-1">
+                  <Text className="text-typography-500 text-sm">
+                    {getText(t.pwd.issueDetail.parshad)}
+                  </Text>
+                  <Text className="text-typography-900 font-medium">
+                    {issue.assigned_parshad.name}
+                  </Text>
+                  {issue.assigned_parshad.village_name && (
+                    <Text className="text-typography-400 text-xs">
+                      {issue.assigned_parshad.village_name}
+                    </Text>
+                  )}
+                </VStack>
+              </HStack>
+            </Box>
+          </View>
+        )}
+
         {/* Reporter Info */}
         {issue.reporter && (
           <View className="px-4 mt-4">
@@ -411,7 +360,7 @@ export const ParshadIssueDetail: React.FC = () => {
                 </Box>
                 <VStack className="flex-1">
                   <Text className="text-typography-500 text-sm">
-                    {getText(t.parshad.issueDetail.reportedBy)}
+                    {getText(t.pwd.issueDetail.reportedBy)}
                   </Text>
                   <Text className="text-typography-900 font-medium">
                     {issue.reporter.name}
@@ -425,26 +374,14 @@ export const ParshadIssueDetail: React.FC = () => {
           </View>
         )}
 
-        {/* Assignment Notes */}
-        {issue.assignment_notes && (
-          <View className="px-4 mt-4">
-            <Box className="bg-warning-50 rounded-2xl p-4 border border-warning-200">
-              <Heading size="sm" className="text-warning-700 mb-2">
-                {getText(t.parshad.issueDetail.assignmentNotes)}
-              </Heading>
-              <Text className="text-warning-800">{issue.assignment_notes}</Text>
-            </Box>
-          </View>
-        )}
-
         {/* Progress Notes */}
         {issue.progress_notes && (
           <View className="px-4 mt-4">
-            <Box className="bg-info-50 rounded-2xl p-4 border border-info-200">
-              <Heading size="sm" className="text-info-700 mb-2">
-                {getText(t.parshad.issueDetail.progressNotes)}
+            <Box className="bg-amber-50 rounded-2xl p-4 border border-amber-200">
+              <Heading size="sm" className="text-amber-700 mb-2">
+                {getText(t.pwd.issueDetail.progressNotes)}
               </Heading>
-              <Text className="text-info-800">{issue.progress_notes}</Text>
+              <Text className="text-amber-800">{issue.progress_notes}</Text>
             </Box>
           </View>
         )}
@@ -472,36 +409,36 @@ export const ParshadIssueDetail: React.FC = () => {
           </View>
         )}
 
-        {/* Update Form (for completion with photos) */}
-        {showUpdateForm && canComplete && (
+        {/* Work Completion Form */}
+        {showCompletionForm && canCompleteWork && (
           <View className="px-4 mt-4">
             <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
               <Heading size="md" className="text-typography-900 mb-4">
-                {getText(t.parshad.issues.markComplete)}
+                {getText(t.pwd.issues.completeWork)}
               </Heading>
 
-              {/* Progress Notes */}
+              {/* Work Notes */}
               <VStack space="xs" className="mb-4">
                 <Text className="text-typography-700 font-medium">
-                  {getText(t.parshad.issueDetail.addProgressNote)}
+                  {getText(t.pwd.issueDetail.workNotes)}
                 </Text>
                 <Textarea>
                   <TextareaInput
-                    placeholder={getText(t.parshad.issueDetail.progressNotePlaceholder)}
-                    value={progressNotes}
-                    onChangeText={setProgressNotes}
+                    placeholder={getText(t.pwd.issueDetail.workNotesPlaceholder)}
+                    value={workNotes}
+                    onChangeText={setWorkNotes}
                     className="bg-background-50"
                   />
                 </Textarea>
               </VStack>
 
-              {/* Photo Attachment */}
+              {/* Photo Attachment (optional) */}
               <VStack space="sm" className="mb-4">
                 <Text className="text-typography-700 font-medium">
-                  {getText(t.parshad.issueDetail.attachPhotos)} *
+                  {getText(t.pwd.issueDetail.attachPhotos)}
                 </Text>
                 <Text className="text-typography-500 text-sm">
-                  {getText(t.parshad.issueDetail.attachPhotosDesc)}
+                  {getText(t.pwd.issueDetail.attachPhotosDesc)}
                 </Text>
 
                 {/* Selected Photos */}
@@ -530,33 +467,33 @@ export const ParshadIssueDetail: React.FC = () => {
                 {selectedPhotos.length < 5 && (
                   <Pressable
                     onPress={openCamera}
-                    className="bg-primary-50 rounded-xl p-4 items-center"
+                    className="bg-amber-50 rounded-xl p-4 items-center"
                   >
-                    <Camera size={24} className="text-primary-600 mb-2" />
-                    <Text className="text-primary-600 text-sm">{getText(t.camera.takePhoto)}</Text>
+                    <Camera size={24} className="text-amber-600 mb-2" />
+                    <Text className="text-amber-600 text-sm">{getText(t.camera.takePhoto)}</Text>
                   </Pressable>
                 )}
               </VStack>
 
               {/* Submit Button */}
               <Button
-                onPress={handleCompleteWithPhotos}
-                isDisabled={isActionLoading || selectedPhotos.length === 0}
+                onPress={handleCompleteWork}
+                isDisabled={isActionLoading}
                 className="bg-success-600"
               >
                 {isActionLoading ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <ButtonText>{getText(t.parshad.issueDetail.submitUpdate)}</ButtonText>
+                  <ButtonText>{getText(t.pwd.issues.completeWork)}</ButtonText>
                 )}
               </Button>
 
               {/* Cancel */}
               <Pressable
                 onPress={() => {
-                  setShowUpdateForm(false);
+                  setShowCompletionForm(false);
                   setSelectedPhotos([]);
-                  setProgressNotes("");
+                  setWorkNotes("");
                 }}
                 className="mt-3"
               >
@@ -570,53 +507,13 @@ export const ParshadIssueDetail: React.FC = () => {
       </ScrollView>
 
       {/* Action Buttons */}
-      {!showUpdateForm && (canAcknowledge || canStartWork || canComplete || canReview) && (
+      {!showCompletionForm && (canStartWork || canCompleteWork) && (
         <View className="absolute bottom-0 left-0 right-0 bg-background-0 border-t border-outline-100 px-4 py-4 pb-8">
-          {canAcknowledge && (
-            <Button
-              onPress={handleAcknowledge}
-              isDisabled={isActionLoading}
-              className="bg-info-600"
-              size="lg"
-            >
-              <HStack className="items-center" space="sm">
-                {isActionLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <Clock size={20} color="#fff" />
-                    <ButtonText>{getText(t.parshad.issues.acknowledge)}</ButtonText>
-                  </>
-                )}
-              </HStack>
-            </Button>
-          )}
-
-          {canReview && (
-            <Button
-              onPress={handleReviewAndClose}
-              isDisabled={isActionLoading}
-              className="bg-success-600"
-              size="lg"
-            >
-              <HStack className="items-center" space="sm">
-                {isActionLoading ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <>
-                    <CheckCircle size={20} color="#fff" />
-                    <ButtonText>{getText(t.parshad.issues.reviewAndClose)}</ButtonText>
-                  </>
-                )}
-              </HStack>
-            </Button>
-          )}
-
           {canStartWork && (
             <Button
               onPress={handleStartWork}
               isDisabled={isActionLoading}
-              className="bg-primary-600"
+              className="bg-amber-600"
               size="lg"
             >
               <HStack className="items-center" space="sm">
@@ -625,26 +522,40 @@ export const ParshadIssueDetail: React.FC = () => {
                 ) : (
                   <>
                     <PlayCircle size={20} color="#fff" />
-                    <ButtonText>{getText(t.parshad.issues.startWork)}</ButtonText>
+                    <ButtonText>{getText(t.pwd.issues.startWork)}</ButtonText>
                   </>
                 )}
               </HStack>
             </Button>
           )}
 
-          {canComplete && (
+          {canCompleteWork && (
             <Button
-              onPress={() => setShowUpdateForm(true)}
+              onPress={() => setShowCompletionForm(true)}
               isDisabled={isActionLoading}
               className="bg-success-600"
               size="lg"
             >
               <HStack className="items-center" space="sm">
                 <CheckCircle size={20} color="#fff" />
-                <ButtonText>{getText(t.parshad.issues.markComplete)}</ButtonText>
+                <ButtonText>{getText(t.pwd.issues.completeWork)}</ButtonText>
               </HStack>
             </Button>
           )}
+        </View>
+      )}
+
+      {/* Completed Status */}
+      {isCompleted && (
+        <View className="absolute bottom-0 left-0 right-0 bg-success-50 border-t border-success-200 px-4 py-4 pb-8">
+          <HStack className="items-center justify-center" space="sm">
+            <CheckCircle size={24} className="text-success-600" />
+            <Text className="text-success-700 font-medium text-center">
+              {issue.status === "pwd_completed" 
+                ? getText(t.pwd.status.awaitingReview)
+                : getText(t.pwd.status.issueResolved)}
+            </Text>
+          </HStack>
         </View>
       )}
 
@@ -683,9 +594,9 @@ export const ParshadIssueDetail: React.FC = () => {
                 {/* Capture Button */}
                 <TouchableOpacity
                   onPress={handleTakePhoto}
-                  className="bg-white rounded-full p-6 border-4 border-primary-500"
+                  className="bg-white rounded-full p-6 border-4 border-amber-500"
                 >
-                  <Camera size={32} className="text-primary-600" />
+                  <Camera size={32} className="text-amber-600" />
                 </TouchableOpacity>
 
                 {/* Placeholder for symmetry */}

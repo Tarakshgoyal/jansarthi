@@ -67,7 +67,14 @@ class OTPService:
             Tuple[bool, Optional[str]]: (success, session_id)
                 - success: True if sent successfully, False otherwise
                 - session_id: Session ID to use for verification (None if failed)
+                  In dev mode, returns "dev_mode" as session_id
         """
+        # Development mode - skip actual OTP sending
+        if settings.dev_mode:
+            normalized_number = normalize_phone_number(to_number)
+            print(f"[DEV MODE] Skipping OTP send to {normalized_number}. Use OTP: {settings.dev_default_otp}")
+            return True, "dev_mode"
+        
         try:
             # Normalize phone number to E.164 format
             normalized_number = normalize_phone_number(to_number)
@@ -101,6 +108,15 @@ class OTPService:
         Returns:
             bool: True if OTP is valid, False otherwise
         """
+        # Development mode - verify against default OTP
+        if settings.dev_mode or session_id == "dev_mode":
+            is_valid = otp_code == settings.dev_default_otp
+            if is_valid:
+                print(f"[DEV MODE] OTP verified successfully")
+            else:
+                print(f"[DEV MODE] OTP verification failed. Expected: {settings.dev_default_otp}, Got: {otp_code}")
+            return is_valid
+        
         try:
             # Build the API URL
             url = f"{self.BASE_URL}/{self.api_key}/SMS/VERIFY/{session_id}/{otp_code}"
