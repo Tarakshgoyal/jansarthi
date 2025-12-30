@@ -7,6 +7,7 @@ import React, { useState } from "react";
 import { Alert, ScrollView } from "react-native";
 import LocationMap from "./LocationMap";
 import PhotoCapture from "./PhotoCapture";
+import WardSelector from "./WardSelector";
 import { Button, ButtonText } from "./ui/button";
 import {
   FormControl,
@@ -90,6 +91,8 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
+        ward_id: selectedWard.id,
+        ward_name: selectedWard.name,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 
@@ -128,6 +131,13 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
         <VStack space="sm">
           <LocationMap height={300} onLocationChange={handleLocationChange} />
         </VStack>
+
+        {/* Ward Selector */}
+        <WardSelector
+          selectedWard={selectedWard}
+          onWardSelect={handleWardSelect}
+          error={wardError || undefined}
+        />
 
         {/* Issue Details Form */}
         <VStack space="md">

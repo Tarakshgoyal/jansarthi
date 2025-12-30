@@ -1,3 +1,4 @@
+import { Ward } from "@/config/wards";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiService } from "@/services/api";
@@ -6,11 +7,12 @@ import React, { useState } from "react";
 import { Alert, ScrollView } from "react-native";
 import LocationMap from "./LocationMap";
 import PhotoCapture from "./PhotoCapture";
+import WardSelector from "./WardSelector";
 import { Button, ButtonText } from "./ui/button";
 import {
-  FormControl,
-  FormControlLabel,
-  FormControlLabelText,
+    FormControl,
+    FormControlLabel,
+    FormControlLabelText,
 } from "./ui/form-control";
 import { Text } from "./ui/text";
 import { Textarea, TextareaInput } from "./ui/textarea";
@@ -32,8 +34,10 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
   const [location, setLocation] = useState<LocationCoords | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [description, setDescription] = useState<string>("");
+  const [selectedWard, setSelectedWard] = useState<Ward | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wardError, setWardError] = useState<string | null>(null);
 
   const handleLocationChange = (coords: LocationCoords) => {
     setLocation(coords);
@@ -45,10 +49,16 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
     console.log("Garbage Issue Photos:", newPhotos);
   };
 
+  const handleWardSelect = (ward: Ward) => {
+    setSelectedWard(ward);
+    setWardError(null);
+    console.log("Garbage Issue Ward:", ward);
+  };
 
   const handleSubmit = async () => {
     try {
       setError(null);
+      setWardError(null);
 
       // Validate form
       if (!description.trim()) {
@@ -61,6 +71,10 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
         return;
       }
 
+      if (!selectedWard) {
+        setWardError(language === "hi" ? "कृपया अपना वार्ड चुनें" : "Please select your ward");
+        return;
+      }
 
       setIsSubmitting(true);
 
@@ -77,6 +91,8 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
+        ward_id: selectedWard.id,
+        ward_name: selectedWard.name,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 
@@ -97,6 +113,7 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
       // Reset form
       setDescription("");
       setPhotos([]);
+      setSelectedWard(null);
     } catch (err) {
       console.error("Failed to submit garbage issue:", err);
       const errorMessage = err instanceof Error ? err.message : "Failed to submit issue";
@@ -114,6 +131,13 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
         <VStack space="sm">
           <LocationMap height={300} onLocationChange={handleLocationChange} />
         </VStack>
+
+        {/* Ward Selector */}
+        <WardSelector
+          selectedWard={selectedWard}
+          onWardSelect={handleWardSelect}
+          error={wardError || undefined}
+        />
 
         {/* Issue Details Form */}
         <VStack space="md">
