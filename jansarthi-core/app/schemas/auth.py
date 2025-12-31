@@ -10,8 +10,9 @@ from pydantic import BaseModel, Field
 class UserRole(str, Enum):
     """User role enum for API responses"""
     USER = "user"
-    PARSHAD = "parshad"
+    REPRESENTATIVE = "representative"
     PWD_WORKER = "pwd_worker"
+    ADMIN = "admin"
 
 
 # User Schemas
@@ -35,9 +36,8 @@ class UserResponse(BaseModel):
     role: UserRole = UserRole.USER
     is_active: bool
     is_verified: bool
-    village_name: Optional[str] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    locality_id: Optional[int] = None
+    locality_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     

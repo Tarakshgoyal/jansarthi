@@ -18,32 +18,77 @@ class IssueType(str, Enum):
 class IssueStatus(str, Enum):
     """Enum for issue status - New Flow:
     1. REPORTED - User reports issue
-    2. ASSIGNED - Auto-assigned to Parshad of the ward
-    3. PARSHAD_ACKNOWLEDGED - Parshad confirms problem exists
+    2. ASSIGNED - Auto-assigned to Representative of the locality
+    3. REPRESENTATIVE_ACKNOWLEDGED - Representative confirms problem exists
     4. PWD_WORKING - PWD workers are working on the issue
     5. PWD_COMPLETED - PWD workers have finished the work
-    6. PARSHAD_REVIEWED - Parshad has reviewed and confirmed fix
+    6. REPRESENTATIVE_REVIEWED - Representative has reviewed and confirmed fix
     """
 
     REPORTED = "reported"
-    ASSIGNED = "assigned"  # Auto-assigned to Parshad
-    PARSHAD_ACKNOWLEDGED = "parshad_acknowledged"  # Parshad confirmed issue exists
+    ASSIGNED = "assigned"  # Auto-assigned to Representative
+    REPRESENTATIVE_ACKNOWLEDGED = "representative_acknowledged"  # Representative confirmed issue exists
     PWD_WORKING = "pwd_working"  # PWD workers started work
     PWD_COMPLETED = "pwd_completed"  # PWD workers finished work
-    PARSHAD_REVIEWED = "parshad_reviewed"  # Parshad reviewed and closed
-    
-    # Legacy statuses (for backward compatibility)
-    PARSHAD_CHECK = "parshad_check"  # Maps to PARSHAD_ACKNOWLEDGED
-    STARTED_WORKING = "started_working"  # Maps to PWD_WORKING
-    FINISHED_WORK = "finished_work"  # Maps to PARSHAD_REVIEWED
+    REPRESENTATIVE_REVIEWED = "representative_reviewed"  # Representative reviewed and closed
 
 
 class UserRole(str, Enum):
     """Enum for user roles"""
     
     USER = "user"  # Normal citizen who reports issues
-    PARSHAD = "parshad"  # Ward councillor who works on issues
-    PWD_WORKER = "pwd_worker"  # PWD official who assigns parshads
+    REPRESENTATIVE = "representative"  # Local head (Parshad for ward, Pradhan for village)
+    PWD_WORKER = "pwd_worker"  # PWD official who works on issues
+    ADMIN = "admin"  # Administrator who manages system
+
+
+class LocalityType(str, Enum):
+    """Type of locality - determines if head is called Parshad or Pradhan"""
+    
+    WARD = "ward"  # Urban area - head is called Parshad
+    VILLAGE = "village"  # Rural area - head is called Pradhan
+
+
+class Locality(SQLModel, table=True):
+    """Locality model - can be a Ward (urban) or Village (rural)"""
+
+    __tablename__ = "localities"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    
+    # Type determines if head is Parshad (ward) or Pradhan (village)
+    type: LocalityType = Field(
+        sa_column=Column(
+            SQLAEnum(LocalityType, values_callable=lambda x: [e.value for e in x]),
+            nullable=False,
+            index=True
+        )
+    )
+    
+    # Status
+    is_active: bool = Field(default=True)
+
+    # Timestamps (with Python defaults for type safety)
+    created_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True), server_default=func.now(), nullable=False
+        )
+    )
+    updated_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(
+            DateTime(timezone=True),
+            server_default=func.now(),
+            onupdate=func.now(),
+            nullable=False,
+        )
+    )
+
+    # Relationships
+    issues: list["Issue"] = Relationship(back_populates="locality")
+    users: list["User"] = Relationship(back_populates="locality")
 
 
 class Issue(SQLModel, table=True):
@@ -65,9 +110,8 @@ class Issue(SQLModel, table=True):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
     
-    # Ward information
-    ward_id: Optional[int] = Field(default=None, index=True)
-    ward_name: Optional[str] = Field(default=None, max_length=200)
+    # Locality (ward or village) - foreign key to localities table
+    locality_id: Optional[int] = Field(default=None, foreign_key="localities.id", index=True)
 
     # Status
     status: IssueStatus = Field(
@@ -91,6 +135,15 @@ class Issue(SQLModel, table=True):
     
     # Parshad's progress notes
     progress_notes: Optional[str] = Field(default=None, max_length=2000)
+    
+    # PWD Worker completion data
+    completion_description: Optional[str] = Field(default=None, max_length=2000)
+    completion_photo_url: Optional[str] = Field(default=None, max_length=500)
+    completed_at: Optional[datetime] = Field(
+        default=None,
+        sa_column=Column(DateTime(timezone=True), nullable=True)
+    )
+    completed_by_id: Optional[int] = Field(default=None, foreign_key="users.id", index=True)
 
     # Timestamps
     created_at: datetime = Field(
@@ -111,6 +164,7 @@ class Issue(SQLModel, table=True):
     photos: list["IssuePhoto"] = Relationship(
         back_populates="issue", cascade_delete=True
     )
+    locality: Optional["Locality"] = Relationship(back_populates="issues")
 
 
 class IssuePhoto(SQLModel, table=True):
@@ -166,13 +220,8 @@ class User(SQLModel, table=True):
     is_active: bool = Field(default=True)
     is_verified: bool = Field(default=False)
     
-    # Location (for Parshads - to match with nearby issues)
-    latitude: Optional[float] = Field(default=None, ge=-90, le=90)
-    longitude: Optional[float] = Field(default=None, ge=-180, le=180)
-    village_name: Optional[str] = Field(default=None, max_length=255)
-    
-    # Ward assignment (for Parshads - to auto-assign issues from their ward)
-    ward_id: Optional[int] = Field(default=None, index=True)
+    # Locality assignment (for Representatives - foreign key to localities table)
+    locality_id: Optional[int] = Field(default=None, foreign_key="localities.id", index=True)
 
     # Timestamps
     created_at: datetime = Field(
@@ -188,6 +237,9 @@ class User(SQLModel, table=True):
             nullable=False,
         )
     )
+
+    # Relationships
+    locality: Optional["Locality"] = Relationship(back_populates="users")
 
 
 class OTP(SQLModel, table=True):

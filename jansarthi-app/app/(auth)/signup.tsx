@@ -88,7 +88,7 @@ export default function SignupScreen() {
       </View>
 
       {/* Content Card */}
-      <View className="flex-1 bg-background-0 rounded-t-3xl px-6 pt-8">
+      <View className="flex-1 bg-background-0 rounded-t-3xl px-6 pt-8 pb-6">
         <VStack space="lg" className="flex-1">
           <FormControl isInvalid={!!localError || !!error}>
             <VStack space="md">
@@ -141,31 +141,36 @@ export default function SignupScreen() {
             </VStack>
           </FormControl>
 
-          <Button
-            size="lg"
-            onPress={handleSignup}
-            isDisabled={isLoading}
-            className="bg-brand-500 rounded-lg shadow-sm"
-          >
-            <ButtonText className="text-typography-white font-semibold">
-              {isLoading ? getText(t.auth.signup.creatingAccount) : getText(t.auth.signup.signUp)}
-            </ButtonText>
-          </Button>
+          {/* Spacer to push button to bottom */}
+          <View className="flex-1" />
 
-          <View className="flex-row justify-center items-center mt-2">
-            <Text size="sm" className="text-typography-500">
-              {getText(t.auth.signup.alreadyHaveAccount)}{' '}
-            </Text>
+          <VStack space="md">
             <Button
-              variant="link"
-              size="sm"
-              onPress={() => router.back()}
+              size="lg"
+              onPress={handleSignup}
+              isDisabled={isLoading}
+              className="bg-brand-500 rounded-lg shadow-sm"
             >
-              <ButtonText className="text-brand-500 font-semibold">
-                {getText(t.auth.signup.login)}
+              <ButtonText className="text-typography-white font-semibold">
+                {isLoading ? getText(t.auth.signup.creatingAccount) : getText(t.auth.signup.signUp)}
               </ButtonText>
             </Button>
-          </View>
+
+            <View className="flex-row justify-center items-center">
+              <Text size="sm" className="text-typography-500">
+                {getText(t.auth.signup.alreadyHaveAccount)}{' '}
+              </Text>
+              <Button
+                variant="link"
+                size="sm"
+                onPress={() => router.back()}
+              >
+                <ButtonText className="text-brand-500 font-semibold">
+                  {getText(t.auth.signup.login)}
+                </ButtonText>
+              </Button>
+            </View>
+          </VStack>
         </VStack>
       </View>
     </View>

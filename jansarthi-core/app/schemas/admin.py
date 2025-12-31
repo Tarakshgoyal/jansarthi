@@ -22,10 +22,10 @@ class IssueCountByStatus(BaseModel):
     """Count of issues by status"""
     reported: int = 0
     assigned: int = 0
-    parshad_acknowledged: int = 0
+    representative_acknowledged: int = 0
     pwd_working: int = 0
     pwd_completed: int = 0
-    parshad_reviewed: int = 0
+    representative_reviewed: int = 0
     # Legacy support
     parshad_check: int = 0
     started_working: int = 0
@@ -35,14 +35,12 @@ class IssueCountByStatus(BaseModel):
 # ==================== User/Parshad Schemas ====================
 
 class ParshadInfo(BaseModel):
-    """Basic Parshad info for issue assignment"""
+    """Basic Representative info for issue assignment"""
     id: int
     name: str
     mobile_number: str
-    village_name: Optional[str] = None
-    ward_id: Optional[int] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    locality_id: Optional[int] = None
+    locality_name: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -72,14 +70,12 @@ class AdminUserResponse(BaseModel):
     role: UserRole
     is_active: bool
     is_verified: bool
-    village_name: Optional[str] = None
-    ward_id: Optional[int] = None
-    latitude: Optional[float] = None
-    longitude: Optional[float] = None
+    locality_id: Optional[int] = None
+    locality_name: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     total_reports: int = 0
-    assigned_issues: int = 0  # For Parshads
+    assigned_issues: int = 0  # For Representatives
 
     class Config:
         from_attributes = True
@@ -98,10 +94,7 @@ class UserRoleUpdate(BaseModel):
     """Update user role and details"""
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
-    village_name: Optional[str] = Field(None, max_length=255)
-    ward_id: Optional[int] = Field(None, description="Ward ID for Parshad assignment")
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    locality_id: Optional[int] = Field(None, description="Locality ID for Representative assignment")
 
 
 # ==================== Issue Schemas for Admin ====================
@@ -126,6 +119,13 @@ class AdminIssueResponse(BaseModel):
     
     # Progress
     progress_notes: Optional[str] = None
+    
+    # PWD completion data
+    completion_description: Optional[str] = None
+    completion_photo_url: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    completed_by_id: Optional[int] = None
+    completed_by_name: Optional[str] = None
     
     created_at: datetime
     updated_at: datetime
@@ -162,7 +162,7 @@ class PWDDashboardStats(BaseModel):
 
 
 class CreateParshadRequest(BaseModel):
-    """Request to create a new Parshad account"""
+    """Request to create a new Representative account"""
     name: str = Field(..., min_length=1, max_length=255)
     mobile_number: str = Field(
         ..., 
@@ -171,10 +171,7 @@ class CreateParshadRequest(BaseModel):
         pattern=r"^\+?[1-9]\d{9,14}$",
         description="Mobile number with country code (e.g., +919876543210)"
     )
-    village_name: Optional[str] = Field(None, max_length=255)
-    ward_id: Optional[int] = Field(None, description="Ward ID this Parshad is responsible for")
-    latitude: Optional[float] = Field(None, ge=-90, le=90)
-    longitude: Optional[float] = Field(None, ge=-180, le=180)
+    locality_id: Optional[int] = Field(None, description="Locality ID this Representative is responsible for")
 
 
 class AssignParshadRequest(BaseModel):
@@ -195,9 +192,9 @@ class ParshadDashboardStats(BaseModel):
     """Dashboard statistics for Parshad"""
     total_assigned: int
     pending_acknowledgement: int  # Status = ASSIGNED
-    in_progress: int  # Status = PARSHAD_ACKNOWLEDGED or PWD_WORKING
+    in_progress: int  # Status = REPRESENTATIVE_ACKNOWLEDGED or PWD_WORKING
     pending_review: int = 0  # Status = PWD_COMPLETED (needs Parshad review)
-    completed: int  # Status = PARSHAD_REVIEWED
+    completed: int  # Status = REPRESENTATIVE_REVIEWED
     issues_by_type: IssueCountByType
 
 

@@ -4,11 +4,11 @@ import math
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlmodel import Session, func, select
 
 from app.database import get_session
-from app.models.issue import Issue, IssueStatus, IssueType, User, UserRole
+from app.models.issue import Issue, IssueStatus, IssueType, Locality, User, UserRole
 from app.schemas.admin import (
     AdminIssueListResponse,
     AdminIssueResponse,
@@ -59,15 +59,31 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
     if issue.assigned_parshad_id:
         parshad = session.get(User, issue.assigned_parshad_id)
         if parshad:
+            locality_name = None
+            if parshad.locality_id:
+                locality = session.get(Locality, parshad.locality_id)
+                if locality:
+                    locality_name = locality.name
             assigned_parshad = ParshadInfo(
                 id=parshad.id,
                 name=parshad.name,
                 mobile_number=parshad.mobile_number,
-                village_name=parshad.village_name,
-                ward_id=parshad.ward_id,
-                latitude=parshad.latitude,
-                longitude=parshad.longitude,
+                locality_id=parshad.locality_id,
+                locality_name=locality_name,
             )
+    
+    # Get completion photo URL if exists
+    completion_photo_url = None
+    if issue.completion_photo_url:
+        storage_service = get_storage_service()
+        completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
+    
+    # Get completed by name
+    completed_by_name = None
+    if issue.completed_by_id:
+        completed_by = session.get(User, issue.completed_by_id)
+        if completed_by:
+            completed_by_name = completed_by.name
     
     return AdminIssueResponse(
         id=issue.id,
@@ -82,6 +98,11 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
         assigned_parshad=assigned_parshad,
         assignment_notes=issue.assignment_notes,
         progress_notes=issue.progress_notes,
+        completion_description=issue.completion_description,
+        completion_photo_url=completion_photo_url,
+        completed_at=issue.completed_at,
+        completed_by_id=issue.completed_by_id,
+        completed_by_name=completed_by_name,
         created_at=issue.created_at,
         updated_at=issue.updated_at,
         photo_count=len(issue.photos),
@@ -120,14 +141,12 @@ async def get_pwd_dashboard(
         select(func.count(Issue.id)).where(Issue.status == IssueStatus.ASSIGNED)
     ).one()
     
-    # In progress (parshad_acknowledged or pwd_working)
+    # In progress (representative_acknowledged or pwd_working)
     in_progress_issues = session.exec(
         select(func.count(Issue.id)).where(
             Issue.status.in_([
-                IssueStatus.PARSHAD_ACKNOWLEDGED, 
-                IssueStatus.PWD_WORKING,
-                IssueStatus.PARSHAD_CHECK,  # Legacy
-                IssueStatus.STARTED_WORKING  # Legacy
+                IssueStatus.REPRESENTATIVE_ACKNOWLEDGED, 
+                IssueStatus.PWD_WORKING
             ])
         )
     ).one()
@@ -135,17 +154,14 @@ async def get_pwd_dashboard(
     # Completed (parshad reviewed/closed)
     completed_issues = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.status.in_([
-                IssueStatus.PARSHAD_REVIEWED,
-                IssueStatus.FINISHED_WORK  # Legacy
-            ])
+            Issue.status == IssueStatus.REPRESENTATIVE_REVIEWED
         )
     ).one()
     
     # Total Parshads
     total_parshads = session.exec(
         select(func.count(User.id)).where(
-            User.role == UserRole.PARSHAD,
+            User.role == UserRole.REPRESENTATIVE,
             User.is_active == True
         )
     ).one()
@@ -153,7 +169,7 @@ async def get_pwd_dashboard(
     # Active Parshads (with ongoing work)
     active_parshads = session.exec(
         select(func.count(func.distinct(Issue.assigned_parshad_id))).where(
-            Issue.status.in_([IssueStatus.ASSIGNED, IssueStatus.PARSHAD_CHECK, IssueStatus.STARTED_WORKING])
+            Issue.status.in_([IssueStatus.ASSIGNED, IssueStatus.REPRESENTATIVE_ACKNOWLEDGED, IssueStatus.PWD_WORKING])
         )
     ).one()
     
@@ -326,18 +342,18 @@ async def get_pwd_worker_issues(
     if filter_type == "pending":
         # Issues acknowledged by Parshad, waiting for PWD work
         query = query.where(
-            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+            Issue.status == IssueStatus.REPRESENTATIVE_ACKNOWLEDGED
         )
         count_query = count_query.where(
-            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+            Issue.status == IssueStatus.REPRESENTATIVE_ACKNOWLEDGED
         )
     elif filter_type == "in_progress":
         # Issues PWD is working on
         query = query.where(
-            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+            Issue.status == IssueStatus.PWD_WORKING
         )
         count_query = count_query.where(
-            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+            Issue.status == IssueStatus.PWD_WORKING
         )
     elif filter_type == "completed":
         # Issues PWD has completed (waiting for Parshad review)
@@ -347,20 +363,16 @@ async def get_pwd_worker_issues(
         # All issues that PWD can see (acknowledged onwards)
         query = query.where(
             Issue.status.in_([
-                IssueStatus.PARSHAD_ACKNOWLEDGED,
+                IssueStatus.REPRESENTATIVE_ACKNOWLEDGED,
                 IssueStatus.PWD_WORKING,
-                IssueStatus.PWD_COMPLETED,
-                IssueStatus.PARSHAD_CHECK,  # Legacy
-                IssueStatus.STARTED_WORKING  # Legacy
+                IssueStatus.PWD_COMPLETED
             ])
         )
         count_query = count_query.where(
             Issue.status.in_([
-                IssueStatus.PARSHAD_ACKNOWLEDGED,
+                IssueStatus.REPRESENTATIVE_ACKNOWLEDGED,
                 IssueStatus.PWD_WORKING,
-                IssueStatus.PWD_COMPLETED,
-                IssueStatus.PARSHAD_CHECK,
-                IssueStatus.STARTED_WORKING
+                IssueStatus.PWD_COMPLETED
             ])
         )
     
@@ -400,14 +412,14 @@ async def get_pwd_worker_dashboard(
     # Pending work (Parshad acknowledged, waiting for PWD)
     pending_work = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+            Issue.status == IssueStatus.REPRESENTATIVE_ACKNOWLEDGED
         )
     ).one()
     
     # In progress (PWD working)
     in_progress = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.status.in_([IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING])
+            Issue.status == IssueStatus.PWD_WORKING
         )
     ).one()
     
@@ -419,7 +431,7 @@ async def get_pwd_worker_dashboard(
     # Reviewed and closed
     completed = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.status.in_([IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK])
+            Issue.status == IssueStatus.REPRESENTATIVE_REVIEWED
         )
     ).one()
     
@@ -429,7 +441,7 @@ async def get_pwd_worker_dashboard(
         count = session.exec(
             select(func.count(Issue.id)).where(
                 Issue.issue_type == issue_type,
-                Issue.status.in_([IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK])
+                Issue.status == IssueStatus.REPRESENTATIVE_ACKNOWLEDGED
             )
         ).one()
         issues_by_type[issue_type.value] = count
@@ -457,7 +469,7 @@ async def pwd_start_work(
     """
     Mark that PWD workers have started working on the issue.
     
-    The issue must be in PARSHAD_ACKNOWLEDGED status (Parshad has confirmed it exists).
+    The issue must be in REPRESENTATIVE_ACKNOWLEDGED status (Parshad has confirmed it exists).
     """
     from datetime import timezone
     
@@ -470,7 +482,7 @@ async def pwd_start_work(
         )
     
     # Check valid status transition
-    if issue.status not in [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK]:
+    if issue.status != IssueStatus.REPRESENTATIVE_ACKNOWLEDGED:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot start work on issue with status {issue.status.value}. "
@@ -502,14 +514,19 @@ async def pwd_start_work(
 )
 async def pwd_complete_work(
     issue_id: int,
-    notes: Optional[str] = Query(None, description="Completion notes"),
+    description: str = Form(..., min_length=10, max_length=2000, description="Description of work done"),
+    photo: UploadFile = File(..., description="Photo of completed work"),
     pwd_user: User = Depends(get_pwd_user),
     session: Session = Depends(get_session),
 ):
     """
     Mark that PWD workers have completed work on the issue.
     
-    The issue will then need to be reviewed by the Parshad for final closure.
+    Upload a photo and description of the completed work.
+    The issue will then need to be reviewed by the Representative for final closure.
+    
+    - **description**: Description of the work done (required)
+    - **photo**: Photo showing the completed work (required)
     """
     from datetime import timezone
     
@@ -522,17 +539,51 @@ async def pwd_complete_work(
         )
     
     # Check valid status transition
-    if issue.status not in [IssueStatus.PWD_WORKING, IssueStatus.STARTED_WORKING]:
+    if issue.status != IssueStatus.PWD_WORKING:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot complete issue with status {issue.status.value}. "
                    f"Work must be started first."
         )
     
-    issue.status = IssueStatus.PWD_COMPLETED
+    # Validate file type
+    if photo.content_type not in ["image/jpeg", "image/png", "image/webp"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only JPEG, PNG, and WebP images are allowed."
+        )
     
+    # Upload completion photo to storage
+    try:
+        storage_service = get_storage_service()
+        content = await photo.read()
+        
+        # Upload to MinIO with completion prefix
+        object_name = storage_service.upload_file(
+            file_data=content,
+            filename=f"completion_{issue_id}_{photo.filename or 'image.jpg'}",
+            content_type=photo.content_type or "image/jpeg",
+        )
+        
+        # Get presigned URL for the uploaded photo
+        completion_photo_url = storage_service.get_file_url(object_name)
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to upload completion photo: {str(e)}"
+        )
+    
+    # Update issue with completion data
+    issue.status = IssueStatus.PWD_COMPLETED
+    issue.completion_description = description
+    issue.completion_photo_url = object_name  # Store the object path, not presigned URL
+    issue.completed_at = datetime.now(timezone.utc)
+    issue.completed_by_id = pwd_user.id
+    
+    # Also add to progress notes for history
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    completion_note = f"[{timestamp}] PWD Completed: {notes or 'Work finished'}"
+    completion_note = f"[{timestamp}] PWD Completed by {pwd_user.name}: {description}"
     
     if issue.progress_notes:
         issue.progress_notes = f"{issue.progress_notes}\n\n{completion_note}"
@@ -582,7 +633,7 @@ async def assign_parshad(
             detail=f"Parshad with id {assignment.parshad_id} not found"
         )
     
-    if parshad.role != UserRole.PARSHAD:
+    if parshad.role != UserRole.REPRESENTATIVE:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Selected user is not a Parshad"
@@ -632,7 +683,7 @@ async def update_issue_assignment(
         # Verify new Parshad
         parshad = session.get(User, update_data.assigned_parshad_id)
         
-        if not parshad or parshad.role != UserRole.PARSHAD:
+        if not parshad or parshad.role != UserRole.REPRESENTATIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid Parshad ID"
@@ -665,18 +716,18 @@ async def create_parshad(
     session: Session = Depends(get_session),
 ):
     """
-    Create a new Parshad account.
+    Create a new Representative (Parshad/Pradhan) account.
     
-    **PWD Worker Only**: Only PWD workers can create Parshad accounts.
+    **PWD Worker Only**: Only PWD workers can create Representative accounts.
     
-    The Parshad will be created with:
-    - role: PARSHAD
+    The Representative will be created with:
+    - role: REPRESENTATIVE
     - is_verified: True (pre-verified by PWD)
     - is_active: True
     
-    - **name**: Parshad's full name
+    - **name**: Representative's full name
     - **mobile_number**: Mobile number (will be used for login)
-    - **village_name**: Village/area name
+    - **locality_id**: Locality ID (ward or village)
     - **latitude**: Optional location latitude
     - **longitude**: Optional location longitude
     """
@@ -691,27 +742,28 @@ async def create_parshad(
     ).first()
     
     if existing_user:
-        if existing_user.role == UserRole.PARSHAD:
+        if existing_user.role == UserRole.REPRESENTATIVE:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="A Parshad with this mobile number already exists"
+                detail="A Representative with this mobile number already exists"
             )
         else:
-            # Upgrade existing user to Parshad
-            existing_user.role = UserRole.PARSHAD
+            # Upgrade existing user to Representative
+            existing_user.role = UserRole.REPRESENTATIVE
             existing_user.is_verified = True
-            if parshad_data.village_name:
-                existing_user.village_name = parshad_data.village_name
-            if parshad_data.ward_id is not None:
-                existing_user.ward_id = parshad_data.ward_id
-            if parshad_data.latitude is not None:
-                existing_user.latitude = parshad_data.latitude
-            if parshad_data.longitude is not None:
-                existing_user.longitude = parshad_data.longitude
+            if parshad_data.locality_id is not None:
+                existing_user.locality_id = parshad_data.locality_id
             
             session.add(existing_user)
             session.commit()
             session.refresh(existing_user)
+            
+            # Get locality name
+            locality_name = None
+            if existing_user.locality_id:
+                locality = session.get(Locality, existing_user.locality_id)
+                if locality:
+                    locality_name = locality.name
             
             return AdminUserResponse(
                 id=existing_user.id,
@@ -720,32 +772,34 @@ async def create_parshad(
                 role=existing_user.role,
                 is_active=existing_user.is_active,
                 is_verified=existing_user.is_verified,
-                village_name=existing_user.village_name,
-                ward_id=existing_user.ward_id,
-                latitude=existing_user.latitude,
-                longitude=existing_user.longitude,
+                locality_id=existing_user.locality_id,
+                locality_name=locality_name,
                 created_at=existing_user.created_at,
                 updated_at=existing_user.updated_at,
                 total_reports=0,
                 assigned_issues=0,
             )
     
-    # Create new Parshad
+    # Create new Representative
     new_parshad = User(
         name=parshad_data.name,
         mobile_number=normalized_number,
-        role=UserRole.PARSHAD,
+        role=UserRole.REPRESENTATIVE,
         is_active=True,
         is_verified=True,  # Pre-verified by PWD
-        village_name=parshad_data.village_name,
-        ward_id=parshad_data.ward_id,
-        latitude=parshad_data.latitude,
-        longitude=parshad_data.longitude,
+        locality_id=parshad_data.locality_id,
     )
     
     session.add(new_parshad)
     session.commit()
     session.refresh(new_parshad)
+    
+    # Get locality name
+    locality_name = None
+    if new_parshad.locality_id:
+        locality = session.get(Locality, new_parshad.locality_id)
+        if locality:
+            locality_name = locality.name
     
     return AdminUserResponse(
         id=new_parshad.id,
@@ -754,10 +808,8 @@ async def create_parshad(
         role=new_parshad.role,
         is_active=new_parshad.is_active,
         is_verified=new_parshad.is_verified,
-        village_name=new_parshad.village_name,
-        ward_id=new_parshad.ward_id,
-        latitude=new_parshad.latitude,
-        longitude=new_parshad.longitude,
+        locality_id=new_parshad.locality_id,
+        locality_name=locality_name,
         created_at=new_parshad.created_at,
         updated_at=new_parshad.updated_at,
         total_reports=0,
@@ -768,41 +820,41 @@ async def create_parshad(
 @pwd_router.get(
     "/parshads",
     response_model=ParshadListResponse,
-    summary="Get all Parshads",
+    summary="Get all Representatives",
 )
 async def get_all_parshads(
     is_active: Optional[bool] = Query(None, description="Filter by active status"),
-    search: Optional[str] = Query(None, description="Search by name or village"),
+    search: Optional[str] = Query(None, description="Search by name"),
     pwd_user: User = Depends(get_pwd_user),
     session: Session = Depends(get_session),
 ):
     """
-    Get list of all Parshads for assignment.
+    Get list of all Representatives for assignment.
     """
-    query = select(User).where(User.role == UserRole.PARSHAD)
+    query = select(User).where(User.role == UserRole.REPRESENTATIVE)
     
     if is_active is not None:
         query = query.where(User.is_active == is_active)
     
     if search:
-        query = query.where(
-            (User.name.contains(search)) | (User.village_name.contains(search))
-        )
+        query = query.where(User.name.contains(search))
     
     parshads = session.exec(query.order_by(User.name)).all()
     
-    items = [
-        ParshadInfo(
+    items = []
+    for p in parshads:
+        locality_name = None
+        if p.locality_id:
+            locality = session.get(Locality, p.locality_id)
+            if locality:
+                locality_name = locality.name
+        items.append(ParshadInfo(
             id=p.id,
             name=p.name,
             mobile_number=p.mobile_number,
-            village_name=p.village_name,
-            ward_id=p.ward_id,
-            latitude=p.latitude,
-            longitude=p.longitude,
-        )
-        for p in parshads
-    ]
+            locality_id=p.locality_id,
+            locality_name=locality_name,
+        ))
     
     return ParshadListResponse(items=items, total=len(items))
 
@@ -827,7 +879,7 @@ async def get_parshad_issues(
     """
     # Verify Parshad exists
     parshad = session.get(User, parshad_id)
-    if not parshad or parshad.role != UserRole.PARSHAD:
+    if not parshad or parshad.role != UserRole.REPRESENTATIVE:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Parshad not found"
@@ -911,10 +963,17 @@ async def get_all_users(
         ).one()
         
         assigned_count = 0
-        if user.role == UserRole.PARSHAD:
+        if user.role == UserRole.REPRESENTATIVE:
             assigned_count = session.exec(
                 select(func.count(Issue.id)).where(Issue.assigned_parshad_id == user.id)
             ).one()
+        
+        # Get locality name
+        locality_name = None
+        if user.locality_id:
+            locality = session.get(Locality, user.locality_id)
+            if locality:
+                locality_name = locality.name
         
         items.append(AdminUserResponse(
             id=user.id,
@@ -923,9 +982,8 @@ async def get_all_users(
             role=user.role,
             is_active=user.is_active,
             is_verified=user.is_verified,
-            village_name=user.village_name,
-            latitude=user.latitude,
-            longitude=user.longitude,
+            locality_id=user.locality_id,
+            locality_name=locality_name,
             created_at=user.created_at,
             updated_at=user.updated_at,
             total_reports=report_count,
@@ -989,14 +1047,8 @@ async def update_user(
     if update_data.is_active is not None:
         user.is_active = update_data.is_active
     
-    if update_data.village_name is not None:
-        user.village_name = update_data.village_name
-    
-    if update_data.latitude is not None:
-        user.latitude = update_data.latitude
-    
-    if update_data.longitude is not None:
-        user.longitude = update_data.longitude
+    if update_data.locality_id is not None:
+        user.locality_id = update_data.locality_id
     
     session.add(user)
     session.commit()
@@ -1007,10 +1059,17 @@ async def update_user(
     ).one()
     
     assigned_count = 0
-    if user.role == UserRole.PARSHAD:
+    if user.role == UserRole.REPRESENTATIVE:
         assigned_count = session.exec(
             select(func.count(Issue.id)).where(Issue.assigned_parshad_id == user.id)
         ).one()
+    
+    # Get locality name
+    locality_name = None
+    if user.locality_id:
+        locality = session.get(Locality, user.locality_id)
+        if locality:
+            locality_name = locality.name
     
     return AdminUserResponse(
         id=user.id,
@@ -1019,9 +1078,8 @@ async def update_user(
         role=user.role,
         is_active=user.is_active,
         is_verified=user.is_verified,
-        village_name=user.village_name,
-        latitude=user.latitude,
-        longitude=user.longitude,
+        locality_id=user.locality_id,
+        locality_name=locality_name,
         created_at=user.created_at,
         updated_at=user.updated_at,
         total_reports=report_count,

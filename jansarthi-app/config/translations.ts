@@ -225,7 +225,7 @@ export interface Translations {
     status: Translation;
   };
 
-  // Ward Selection
+  // Ward Selection (legacy - keeping for backward compatibility)
   ward: {
     selectWard: Translation;
     selectYourWard: Translation;
@@ -234,6 +234,19 @@ export interface Translations {
     parshad: Translation;
     viewMap: Translation;
     wardNumber: Translation;
+  };
+
+  // Locality Selection
+  locality: {
+    selectLocality: Translation;
+    selectYourLocality: Translation;
+    searchPlaceholder: Translation;
+    noLocalitiesFound: Translation;
+    representative: Translation;
+    viewMap: Translation;
+    locality: Translation;
+    ward: Translation;
+    village: Translation;
   };
 
   // Status Labels
@@ -348,6 +361,11 @@ export interface Translations {
       statusUpdated: Translation;
       awaitingReview: Translation;
       issueResolved: Translation;
+      descriptionRequired: Translation;
+      photoRequired: Translation;
+      completionDescription: Translation;
+      completedBy: Translation;
+      completedAt: Translation;
     };
   };
 }
@@ -1018,7 +1036,7 @@ export const translations: Translations = {
     },
   },
 
-  // Ward Selection
+  // Ward Selection (legacy - keeping for backward compatibility)
   ward: {
     selectWard: {
       en: "Select Ward",
@@ -1047,6 +1065,46 @@ export const translations: Translations = {
     wardNumber: {
       en: "Ward",
       hi: "वार्ड",
+    },
+  },
+
+  // Locality Selection
+  locality: {
+    selectLocality: {
+      en: "Select Locality",
+      hi: "स्थान चुनें",
+    },
+    selectYourLocality: {
+      en: "Select your locality...",
+      hi: "अपना स्थान चुनें...",
+    },
+    searchPlaceholder: {
+      en: "Search locality name...",
+      hi: "स्थान का नाम खोजें...",
+    },
+    noLocalitiesFound: {
+      en: "No localities found",
+      hi: "कोई स्थान नहीं मिला",
+    },
+    representative: {
+      en: "Representative",
+      hi: "प्रतिनिधि",
+    },
+    viewMap: {
+      en: "View Map",
+      hi: "नक्शा देखें",
+    },
+    locality: {
+      en: "Locality",
+      hi: "स्थान",
+    },
+    ward: {
+      en: "Ward",
+      hi: "वार्ड",
+    },
+    village: {
+      en: "Village",
+      hi: "गाँव",
     },
   },
 
@@ -1378,12 +1436,12 @@ export const translations: Translations = {
         hi: "किए गए काम का वर्णन करें...",
       },
       attachPhotos: {
-        en: "Attach Photos (Optional)",
-        hi: "फोटो जोड़ें (वैकल्पिक)",
+        en: "Attach Photo (Required)",
+        hi: "फोटो जोड़ें (आवश्यक)",
       },
       attachPhotosDesc: {
-        en: "Add photos of completed work",
-        hi: "पूर्ण काम की फोटो जोड़ें",
+        en: "Take a photo of the completed work",
+        hi: "पूर्ण काम की फोटो लें",
       },
     },
     status: {
@@ -1422,6 +1480,26 @@ export const translations: Translations = {
       issueResolved: {
         en: "Issue Resolved",
         hi: "समस्या हल हुई",
+      },
+      descriptionRequired: {
+        en: "Please provide a description of the completed work (at least 10 characters)",
+        hi: "कृपया पूर्ण किए गए काम का विवरण दें (कम से कम 10 अक्षर)",
+      },
+      photoRequired: {
+        en: "Please take a photo of the completed work",
+        hi: "कृपया पूर्ण किए गए काम की फोटो लें",
+      },
+      completionDescription: {
+        en: "Completion Description",
+        hi: "पूर्णता विवरण",
+      },
+      completedBy: {
+        en: "Completed By",
+        hi: "द्वारा पूर्ण",
+      },
+      completedAt: {
+        en: "Completed At",
+        hi: "पूर्ण होने का समय",
       },
     },
   },

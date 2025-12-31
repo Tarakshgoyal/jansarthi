@@ -102,12 +102,17 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
         longitude: searchLocation.longitude,
         radius: 50, // 50km radius
       });
-      setIssues(issuesData);
+      
+      // Filter out resolved issues - only show active/pending issues on the map
+      const activeIssues = issuesData.filter(
+        (issue) => issue.status !== 'representative_reviewed'
+      );
+      setIssues(activeIssues);
 
       // Center map on issues if available
-      if (issuesData.length > 0) {
-        const latitudes = issuesData.map(i => i.latitude);
-        const longitudes = issuesData.map(i => i.longitude);
+      if (activeIssues.length > 0) {
+        const latitudes = activeIssues.map(i => i.latitude);
+        const longitudes = activeIssues.map(i => i.longitude);
         
         const minLat = Math.min(...latitudes);
         const maxLat = Math.max(...latitudes);
@@ -169,11 +174,13 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
     switch (status) {
       case 'reported':
         return '#ef4444'; // red
-      case 'parshad_check':
+      case 'assigned':
+      case 'representative_acknowledged':
         return '#eab308'; // yellow
-      case 'started_working':
+      case 'pwd_working':
+      case 'pwd_completed':
         return '#22c55e'; // green
-      case 'finished_work':
+      case 'representative_reviewed':
         return '#3b82f6'; // blue
       default:
         // Fallback to issue type colors if status doesn't match
@@ -226,11 +233,14 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
-      case 'parshad_check':
+      case 'assigned':
+      case 'representative_acknowledged':
         return getText(t.status.parshadCheck);
-      case 'started_working':
+      case 'pwd_working':
         return getText(t.status.startedWorking);
-      case 'finished_work':
+      case 'pwd_completed':
+        return getText(t.status.pwdCompleted);
+      case 'representative_reviewed':
         return getText(t.status.finishedWork);
       default:
         return status;

@@ -6,7 +6,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi import status as http_status
-from sqlmodel import Session, func, select
+from sqlmodel import Session, func, or_, select
 
 from app.database import get_session
 from app.models.issue import Issue, IssuePhoto, IssueStatus, IssueType, User, UserRole
@@ -33,7 +33,7 @@ async def get_parshad_user(
     """
     Dependency to verify user is a Parshad
     """
-    if current_user.role != UserRole.PARSHAD:
+    if current_user.role != UserRole.REPRESENTATIVE:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
             detail="Parshad privileges required"
@@ -43,6 +43,8 @@ async def get_parshad_user(
 
 def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
     """Helper to build AdminIssueResponse with related data"""
+    from app.services.storage import get_storage_service
+    
     reporter = None
     if issue.user_id:
         user = session.get(User, issue.user_id)
@@ -53,15 +55,32 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
     if issue.assigned_parshad_id:
         parshad = session.get(User, issue.assigned_parshad_id)
         if parshad:
+            locality_name = None
+            if parshad.locality_id:
+                from app.models.issue import Locality
+                locality = session.get(Locality, parshad.locality_id)
+                if locality:
+                    locality_name = locality.name
             assigned_parshad = ParshadInfo(
                 id=parshad.id,
                 name=parshad.name,
                 mobile_number=parshad.mobile_number,
-                village_name=parshad.village_name,
-                ward_id=parshad.ward_id,
-                latitude=parshad.latitude,
-                longitude=parshad.longitude,
+                locality_id=parshad.locality_id,
+                locality_name=locality_name,
             )
+    
+    # Get completion photo URL if exists
+    completion_photo_url = None
+    if issue.completion_photo_url:
+        storage_service = get_storage_service()
+        completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
+    
+    # Get completed by name
+    completed_by_name = None
+    if issue.completed_by_id:
+        completed_by = session.get(User, issue.completed_by_id)
+        if completed_by:
+            completed_by_name = completed_by.name
     
     return AdminIssueResponse(
         id=issue.id,
@@ -76,6 +95,11 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
         assigned_parshad=assigned_parshad,
         assignment_notes=issue.assignment_notes,
         progress_notes=issue.progress_notes,
+        completion_description=issue.completion_description,
+        completion_photo_url=completion_photo_url,
+        completed_at=issue.completed_at,
+        completed_by_id=issue.completed_by_id,
+        completed_by_name=completed_by_name,
         created_at=issue.created_at,
         updated_at=issue.updated_at,
         photo_count=len(issue.photos),
@@ -96,32 +120,40 @@ async def get_parshad_dashboard(
     """
     Get dashboard statistics for the logged-in Parshad.
     
-    Shows only issues assigned to this Parshad.
+    Shows issues assigned to this Parshad OR unassigned issues from their ward.
     """
     parshad_id = parshad_user.id
+    locality_id = parshad_user.locality_id
     
-    # Total assigned to this Parshad
+    # Condition: assigned to this Parshad OR (in their ward and unassigned/reported)
+    def parshad_issue_filter():
+        if locality_id:
+            return or_(
+                Issue.assigned_parshad_id == parshad_id,
+                (Issue.locality_id == locality_id) & (Issue.assigned_parshad_id == None)
+            )
+        return Issue.assigned_parshad_id == parshad_id
+    
+    # Total assigned to this Parshad or in their ward
     total_assigned = session.exec(
-        select(func.count(Issue.id)).where(Issue.assigned_parshad_id == parshad_id)
+        select(func.count(Issue.id)).where(parshad_issue_filter())
     ).one()
     
-    # Pending acknowledgement (status = ASSIGNED)
+    # Pending acknowledgement (status = ASSIGNED or REPORTED for unassigned ward issues)
     pending_acknowledgement = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.assigned_parshad_id == parshad_id,
-            Issue.status == IssueStatus.ASSIGNED
+            parshad_issue_filter(),
+            Issue.status.in_([IssueStatus.ASSIGNED, IssueStatus.REPORTED])
         )
     ).one()
     
-    # In progress (PARSHAD_ACKNOWLEDGED, PWD_WORKING, or legacy statuses)
+    # In progress (REPRESENTATIVE_ACKNOWLEDGED, PWD_WORKING)
     in_progress = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.assigned_parshad_id == parshad_id,
+            parshad_issue_filter(),
             Issue.status.in_([
-                IssueStatus.PARSHAD_ACKNOWLEDGED,
-                IssueStatus.PWD_WORKING,
-                IssueStatus.PARSHAD_CHECK,  # Legacy
-                IssueStatus.STARTED_WORKING  # Legacy
+                IssueStatus.REPRESENTATIVE_ACKNOWLEDGED,
+                IssueStatus.PWD_WORKING
             ])
         )
     ).one()
@@ -129,16 +161,16 @@ async def get_parshad_dashboard(
     # Pending review (PWD_COMPLETED - needs Parshad to verify)
     pending_review = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.assigned_parshad_id == parshad_id,
+            parshad_issue_filter(),
             Issue.status == IssueStatus.PWD_COMPLETED
         )
     ).one()
     
-    # Completed (PARSHAD_REVIEWED or legacy FINISHED_WORK)
+    # Completed (REPRESENTATIVE_REVIEWED)
     completed = session.exec(
         select(func.count(Issue.id)).where(
-            Issue.assigned_parshad_id == parshad_id,
-            Issue.status.in_([IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK])
+            parshad_issue_filter(),
+            Issue.status == IssueStatus.REPRESENTATIVE_REVIEWED
         )
     ).one()
     
@@ -147,7 +179,7 @@ async def get_parshad_dashboard(
     for issue_type in IssueType:
         count = session.exec(
             select(func.count(Issue.id)).where(
-                Issue.assigned_parshad_id == parshad_id,
+                parshad_issue_filter(),
                 Issue.issue_type == issue_type
             )
         ).one()
@@ -179,15 +211,24 @@ async def get_my_issues(
     session: Session = Depends(get_session),
 ):
     """
-    Get paginated list of issues assigned to this Parshad.
+    Get paginated list of issues assigned to this Parshad or in their ward.
     
-    **Parshad Only**: Only sees issues assigned to them.
+    **Parshad Only**: Sees issues assigned to them or unassigned issues from their ward.
     """
     parshad_id = parshad_user.id
+    locality_id = parshad_user.locality_id
     
-    # Build query - only issues assigned to this Parshad
-    query = select(Issue).where(Issue.assigned_parshad_id == parshad_id)
-    count_query = select(func.count(Issue.id)).where(Issue.assigned_parshad_id == parshad_id)
+    # Build query - issues assigned to this Parshad OR unassigned issues from their ward
+    if locality_id:
+        base_filter = or_(
+            Issue.assigned_parshad_id == parshad_id,
+            (Issue.locality_id == locality_id) & (Issue.assigned_parshad_id == None)
+        )
+    else:
+        base_filter = Issue.assigned_parshad_id == parshad_id
+    
+    query = select(Issue).where(base_filter)
+    count_query = select(func.count(Issue.id)).where(base_filter)
     
     # Apply filters
     if issue_type:
@@ -234,18 +275,22 @@ async def get_pending_issues(
     """
     Get issues that are newly assigned and need acknowledgement.
     
-    These are issues with status = ASSIGNED that the Parshad hasn't started yet.
+    These are issues with status = ASSIGNED or REPORTED (unassigned from their ward).
     """
     parshad_id = parshad_user.id
+    locality_id = parshad_user.locality_id
     
-    query = select(Issue).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status == IssueStatus.ASSIGNED
-    )
-    count_query = select(func.count(Issue.id)).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status == IssueStatus.ASSIGNED
-    )
+    # Include unassigned issues from ward with REPORTED status
+    if locality_id:
+        base_filter = or_(
+            (Issue.assigned_parshad_id == parshad_id) & (Issue.status == IssueStatus.ASSIGNED),
+            (Issue.locality_id == locality_id) & (Issue.assigned_parshad_id == None) & (Issue.status == IssueStatus.REPORTED)
+        )
+    else:
+        base_filter = (Issue.assigned_parshad_id == parshad_id) & (Issue.status == IssueStatus.ASSIGNED)
+    
+    query = select(Issue).where(base_filter)
+    count_query = select(func.count(Issue.id)).where(base_filter)
     
     total = session.exec(count_query).one()
     
@@ -277,19 +322,29 @@ async def get_in_progress_issues(
     session: Session = Depends(get_session),
 ):
     """
-    Get issues that are in progress (PARSHAD_CHECK or STARTED_WORKING).
+    Get issues that are in progress (REPRESENTATIVE_ACKNOWLEDGED or PWD_WORKING).
     
     These are issues the Parshad has acknowledged or started working on.
     """
     parshad_id = parshad_user.id
+    locality_id = parshad_user.locality_id
+    
+    # Include ward issues that are in progress
+    if locality_id:
+        base_filter = or_(
+            Issue.assigned_parshad_id == parshad_id,
+            (Issue.locality_id == locality_id) & (Issue.assigned_parshad_id == None)
+        )
+    else:
+        base_filter = Issue.assigned_parshad_id == parshad_id
     
     query = select(Issue).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status.in_([IssueStatus.PARSHAD_CHECK, IssueStatus.STARTED_WORKING])
+        base_filter,
+        Issue.status.in_([IssueStatus.REPRESENTATIVE_ACKNOWLEDGED, IssueStatus.PWD_WORKING])
     )
     count_query = select(func.count(Issue.id)).where(
-        Issue.assigned_parshad_id == parshad_id,
-        Issue.status.in_([IssueStatus.PARSHAD_CHECK, IssueStatus.STARTED_WORKING])
+        base_filter,
+        Issue.status.in_([IssueStatus.REPRESENTATIVE_ACKNOWLEDGED, IssueStatus.PWD_WORKING])
     )
     
     total = session.exec(count_query).one()
@@ -327,13 +382,23 @@ async def get_pending_review_issues(
     These are issues with status = PWD_COMPLETED.
     """
     parshad_id = parshad_user.id
+    locality_id = parshad_user.locality_id
+    
+    # Include ward issues pending review
+    if locality_id:
+        base_filter = or_(
+            Issue.assigned_parshad_id == parshad_id,
+            (Issue.locality_id == locality_id) & (Issue.assigned_parshad_id == None)
+        )
+    else:
+        base_filter = Issue.assigned_parshad_id == parshad_id
     
     query = select(Issue).where(
-        Issue.assigned_parshad_id == parshad_id,
+        base_filter,
         Issue.status == IssueStatus.PWD_COMPLETED
     )
     count_query = select(func.count(Issue.id)).where(
-        Issue.assigned_parshad_id == parshad_id,
+        base_filter,
         Issue.status == IssueStatus.PWD_COMPLETED
     )
     
@@ -376,11 +441,15 @@ async def get_issue_detail(
             detail=f"Issue with id {issue_id} not found"
         )
     
-    # Verify issue is assigned to this Parshad
-    if issue.assigned_parshad_id != parshad_user.id:
+    # Verify issue is assigned to this Parshad OR in their ward
+    locality_id = parshad_user.locality_id
+    is_assigned = issue.assigned_parshad_id == parshad_user.id
+    is_in_ward = locality_id and issue.locality_id == locality_id and issue.assigned_parshad_id is None
+    
+    if not is_assigned and not is_in_ward:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="This issue is not assigned to you"
+            detail="This issue is not assigned to you or in your ward"
         )
     
     return build_issue_response(issue, session)
@@ -400,12 +469,12 @@ async def update_issue_status(
     """
     Update the status of an assigned issue.
     
-    **Parshad Only**: Can only update issues assigned to them.
+    **Parshad Only**: Can update issues assigned to them or unassigned issues from their ward.
     
     Valid status transitions:
-    - ASSIGNED → PARSHAD_CHECK (acknowledge receipt)
-    - PARSHAD_CHECK → STARTED_WORKING (begin work)
-    - STARTED_WORKING → FINISHED_WORK (complete work)
+    - REPORTED → REPRESENTATIVE_ACKNOWLEDGED (acknowledge unassigned ward issue)
+    - ASSIGNED → REPRESENTATIVE_ACKNOWLEDGED (acknowledge receipt)
+    - PWD_COMPLETED → REPRESENTATIVE_REVIEWED (review completed work)
     
     - **status**: New status
     - **progress_notes**: Notes about the progress/work done
@@ -418,30 +487,31 @@ async def update_issue_status(
             detail=f"Issue with id {issue_id} not found"
         )
     
-    # Verify issue is assigned to this Parshad
-    if issue.assigned_parshad_id != parshad_user.id:
+    # Verify issue is assigned to this Parshad OR is an unassigned issue in their ward
+    locality_id = parshad_user.locality_id
+    is_assigned = issue.assigned_parshad_id == parshad_user.id
+    is_unassigned_in_ward = (
+        locality_id and 
+        issue.locality_id == locality_id and 
+        issue.assigned_parshad_id is None
+    )
+    
+    if not is_assigned and not is_unassigned_in_ward:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="This issue is not assigned to you"
+            detail="This issue is not assigned to you or in your ward"
         )
     
     # Validate status transition - NEW FLOW
     # Parshad can:
-    # 1. Acknowledge issue (ASSIGNED -> PARSHAD_ACKNOWLEDGED)
-    # 2. Review completed work (PWD_COMPLETED -> PARSHAD_REVIEWED)
+    # 1. Acknowledge issue (ASSIGNED/REPORTED -> REPRESENTATIVE_ACKNOWLEDGED)
+    # 2. Review completed work (PWD_COMPLETED -> REPRESENTATIVE_REVIEWED)
     valid_transitions = {
-        IssueStatus.ASSIGNED: [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK],
-        IssueStatus.PWD_COMPLETED: [IssueStatus.PARSHAD_REVIEWED, IssueStatus.FINISHED_WORK],
-        IssueStatus.PARSHAD_REVIEWED: [],  # Cannot change after completion
-        # Legacy transitions
-        IssueStatus.PARSHAD_CHECK: [IssueStatus.STARTED_WORKING],
-        IssueStatus.STARTED_WORKING: [IssueStatus.FINISHED_WORK],
-        IssueStatus.FINISHED_WORK: [],
+        IssueStatus.REPORTED: [IssueStatus.REPRESENTATIVE_ACKNOWLEDGED],  # For unassigned ward issues
+        IssueStatus.ASSIGNED: [IssueStatus.REPRESENTATIVE_ACKNOWLEDGED],
+        IssueStatus.PWD_COMPLETED: [IssueStatus.REPRESENTATIVE_REVIEWED],
+        IssueStatus.REPRESENTATIVE_REVIEWED: [],  # Cannot change after completion
     }
-    
-    # Also allow REPORTED -> PARSHAD_ACKNOWLEDGED for backward compatibility
-    if issue.status == IssueStatus.REPORTED:
-        valid_transitions[IssueStatus.REPORTED] = [IssueStatus.PARSHAD_ACKNOWLEDGED, IssueStatus.PARSHAD_CHECK]
     
     allowed_statuses = valid_transitions.get(issue.status, [])
     
@@ -490,7 +560,7 @@ async def update_issue_with_photos(
     
     **Parshad Only**: Update status and upload photos as proof of work.
     
-    - **status**: New status (parshad_check, started_working, finished_work)
+    - **status**: New status (representative_acknowledged, representative_reviewed)
     - **progress_notes**: Notes about the progress/work done
     - **photos**: Up to 5 photos as proof of work
     """
@@ -502,11 +572,19 @@ async def update_issue_with_photos(
             detail=f"Issue with id {issue_id} not found"
         )
     
-    # Verify issue is assigned to this Parshad
-    if issue.assigned_parshad_id != parshad_user.id:
+    # Verify issue is assigned to this Parshad OR is an unassigned issue in their ward
+    locality_id = parshad_user.locality_id
+    is_assigned = issue.assigned_parshad_id == parshad_user.id
+    is_unassigned_in_ward = (
+        locality_id and 
+        issue.locality_id == locality_id and 
+        issue.assigned_parshad_id is None
+    )
+    
+    if not is_assigned and not is_unassigned_in_ward:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="This issue is not assigned to you"
+            detail="This issue is not assigned to you or in your ward"
         )
     
     # Validate number of photos
@@ -518,14 +596,11 @@ async def update_issue_with_photos(
     
     # Validate status transition
     valid_transitions = {
-        IssueStatus.ASSIGNED: [IssueStatus.PARSHAD_CHECK],
-        IssueStatus.PARSHAD_CHECK: [IssueStatus.STARTED_WORKING],
-        IssueStatus.STARTED_WORKING: [IssueStatus.FINISHED_WORK],
-        IssueStatus.FINISHED_WORK: [],
+        IssueStatus.REPORTED: [IssueStatus.REPRESENTATIVE_ACKNOWLEDGED],  # For unassigned ward issues
+        IssueStatus.ASSIGNED: [IssueStatus.REPRESENTATIVE_ACKNOWLEDGED],
+        IssueStatus.PWD_COMPLETED: [IssueStatus.REPRESENTATIVE_REVIEWED],
+        IssueStatus.REPRESENTATIVE_REVIEWED: [],
     }
-    
-    if issue.status == IssueStatus.REPORTED:
-        valid_transitions[IssueStatus.REPORTED] = [IssueStatus.PARSHAD_CHECK]
     
     allowed_statuses = valid_transitions.get(issue.status, [])
     
@@ -612,9 +687,9 @@ async def acknowledge_issue(
     session: Session = Depends(get_session),
 ):
     """
-    Quick action to acknowledge a newly assigned issue.
+    Quick action to acknowledge a newly assigned issue or unassigned ward issue.
     
-    Changes status from ASSIGNED to PARSHAD_CHECK.
+    Changes status from ASSIGNED/REPORTED to REPRESENTATIVE_ACKNOWLEDGED.
     """
     issue = session.get(Issue, issue_id)
     
@@ -624,19 +699,28 @@ async def acknowledge_issue(
             detail=f"Issue with id {issue_id} not found"
         )
     
-    if issue.assigned_parshad_id != parshad_user.id:
+    # Verify issue is assigned to this Parshad OR is an unassigned issue in their ward
+    locality_id = parshad_user.locality_id
+    is_assigned = issue.assigned_parshad_id == parshad_user.id
+    is_unassigned_in_ward = (
+        locality_id and 
+        issue.locality_id == locality_id and 
+        issue.assigned_parshad_id is None
+    )
+    
+    if not is_assigned and not is_unassigned_in_ward:
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="This issue is not assigned to you"
+            detail="This issue is not assigned to you or in your ward"
         )
     
-    if issue.status != IssueStatus.ASSIGNED:
+    if issue.status not in [IssueStatus.ASSIGNED, IssueStatus.REPORTED]:
         raise HTTPException(
             status_code=http_status.HTTP_400_BAD_REQUEST,
             detail=f"Issue is already acknowledged (status: {issue.status.value})"
         )
     
-    issue.status = IssueStatus.PARSHAD_ACKNOWLEDGED
+    issue.status = IssueStatus.REPRESENTATIVE_ACKNOWLEDGED
     
     # Add acknowledgement note
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
@@ -796,7 +880,7 @@ async def review_issue(
     This is the final step in the new flow where Parshad verifies 
     that PWD workers have successfully fixed the issue.
     
-    Changes status from PWD_COMPLETED to PARSHAD_REVIEWED.
+    Changes status from PWD_COMPLETED to REPRESENTATIVE_REVIEWED.
     """
     issue = session.get(Issue, issue_id)
     
@@ -818,7 +902,7 @@ async def review_issue(
             detail=f"Cannot review from status: {issue.status.value}. Issue must be completed by PWD first."
         )
     
-    issue.status = IssueStatus.PARSHAD_REVIEWED
+    issue.status = IssueStatus.REPRESENTATIVE_REVIEWED
     
     # Add review note
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")

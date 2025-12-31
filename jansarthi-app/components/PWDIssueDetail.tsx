@@ -11,31 +11,29 @@ import { apiService, ParshadIssue } from "@/services/api";
 import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  AlertCircle,
-  ArrowLeft,
-  Camera,
-  CheckCircle,
-  Clock,
-  Construction,
-  Droplet,
-  HardHat,
-  MapPin,
-  PlayCircle,
-  RefreshCw,
-  Trash2,
-  User,
-  X,
-  Zap,
+    AlertCircle,
+    ArrowLeft,
+    Camera,
+    CheckCircle,
+    Clock,
+    Construction,
+    Droplet,
+    PlayCircle,
+    RefreshCw,
+    Trash2,
+    User,
+    X,
+    Zap
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  ScrollView,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Alert,
+    Image,
+    Modal,
+    ScrollView,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 export const PWDIssueDetail: React.FC = () => {
@@ -140,16 +138,13 @@ export const PWDIssueDetail: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return { bg: "bg-warning-100", text: "text-warning-700" };
       case "pwd_working":
-      case "started_working":
         return { bg: "bg-primary-100", text: "text-primary-700" };
       case "pwd_completed":
         return { bg: "bg-info-100", text: "text-info-700" };
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return { bg: "bg-success-100", text: "text-success-700" };
       default:
         return { bg: "bg-gray-100", text: "text-gray-700" };
@@ -158,16 +153,13 @@ export const PWDIssueDetail: React.FC = () => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return getText(t.pwd.status.pendingWork);
       case "pwd_working":
-      case "started_working":
         return getText(t.pwd.status.inProgress);
       case "pwd_completed":
         return getText(t.pwd.status.pendingReview);
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return getText(t.pwd.status.completed);
       default:
         return status;
@@ -208,6 +200,23 @@ export const PWDIssueDetail: React.FC = () => {
   const handleCompleteWork = async () => {
     if (!issue) return;
 
+    // Validate required fields
+    if (!workNotes || workNotes.trim().length < 10) {
+      Alert.alert(
+        getText(t.validation?.error || "Error"),
+        getText(t.pwd.status.descriptionRequired || "Please provide a description of the completed work (at least 10 characters)")
+      );
+      return;
+    }
+
+    if (selectedPhotos.length === 0) {
+      Alert.alert(
+        getText(t.validation?.error || "Error"),
+        getText(t.pwd.status.photoRequired || "Please take a photo of the completed work")
+      );
+      return;
+    }
+
     Alert.alert(
       getText(t.pwd.issues.completeWork),
       getText(t.pwd.status.completeWorkConfirm),
@@ -218,7 +227,21 @@ export const PWDIssueDetail: React.FC = () => {
           onPress: async () => {
             try {
               setIsActionLoading(true);
-              await apiService.pwdCompleteWork(issue.id, workNotes || undefined);
+              
+              // Get the first photo for completion
+              const photoUri = selectedPhotos[0];
+              const photoName = `completion_${issue.id}_${Date.now()}.jpg`;
+              
+              await apiService.pwdCompleteWork({
+                issueId: issue.id,
+                description: workNotes.trim(),
+                photo: {
+                  uri: photoUri,
+                  type: 'image/jpeg',
+                  name: photoName,
+                },
+              });
+              
               setWorkNotes("");
               setSelectedPhotos([]);
               setShowCompletionForm(false);
@@ -274,9 +297,9 @@ export const PWDIssueDetail: React.FC = () => {
   const Icon = getIssueTypeIcon(issue.issue_type);
   const statusColors = getStatusColor(issue.status);
 
-  const canStartWork = issue.status === "parshad_acknowledged" || issue.status === "parshad_check";
-  const canCompleteWork = issue.status === "pwd_working" || issue.status === "started_working";
-  const isCompleted = issue.status === "pwd_completed" || issue.status === "parshad_reviewed" || issue.status === "finished_work";
+  const canStartWork = issue.status === "representative_acknowledged";
+  const canCompleteWork = issue.status === "pwd_working";
+  const isCompleted = issue.status === "pwd_completed" || issue.status === "representative_reviewed";
 
   return (
     <View className="flex-1 bg-background-50">
@@ -324,8 +347,8 @@ export const PWDIssueDetail: React.FC = () => {
           </Box>
         </View>
 
-        {/* Parshad Info */}
-        {issue.assigned_parshad && (
+        {/* Representative Info */}
+        {issue.assigned_representative && (
           <View className="px-4 mt-4">
             <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
               <HStack className="items-center" space="md">
@@ -337,11 +360,11 @@ export const PWDIssueDetail: React.FC = () => {
                     {getText(t.pwd.issueDetail.parshad)}
                   </Text>
                   <Text className="text-typography-900 font-medium">
-                    {issue.assigned_parshad.name}
+                    {issue.assigned_representative.name}
                   </Text>
-                  {issue.assigned_parshad.village_name && (
+                  {issue.assigned_representative.locality_name && (
                     <Text className="text-typography-400 text-xs">
-                      {issue.assigned_parshad.village_name}
+                      {issue.assigned_representative.locality_name}
                     </Text>
                   )}
                 </VStack>
@@ -382,6 +405,46 @@ export const PWDIssueDetail: React.FC = () => {
                 {getText(t.pwd.issueDetail.progressNotes)}
               </Heading>
               <Text className="text-amber-800">{issue.progress_notes}</Text>
+            </Box>
+          </View>
+        )}
+
+        {/* Completion Info (for completed issues) */}
+        {issue.completion_description && (
+          <View className="px-4 mt-4">
+            <Box className="bg-green-50 rounded-2xl p-4 border border-green-200">
+              <Heading size="sm" className="text-green-700 mb-2">
+                {getText(t.pwd.status.completionDescription)}
+              </Heading>
+              <Text className="text-green-800 mb-3">{issue.completion_description}</Text>
+              
+              {issue.completed_by_name && (
+                <HStack className="items-center mb-2" space="sm">
+                  <User size={16} className="text-green-600" />
+                  <Text className="text-green-700 text-sm">
+                    {getText(t.pwd.status.completedBy)}: {issue.completed_by_name}
+                  </Text>
+                </HStack>
+              )}
+              
+              {issue.completed_at && (
+                <HStack className="items-center" space="sm">
+                  <Clock size={16} className="text-green-600" />
+                  <Text className="text-green-700 text-sm">
+                    {getText(t.pwd.status.completedAt)}: {new Date(issue.completed_at).toLocaleDateString()}
+                  </Text>
+                </HStack>
+              )}
+              
+              {issue.completion_photo_url && (
+                <View className="mt-3 rounded-xl overflow-hidden border border-green-200">
+                  <Image
+                    source={{ uri: issue.completion_photo_url }}
+                    style={{ width: '100%', height: 200 }}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
             </Box>
           </View>
         )}

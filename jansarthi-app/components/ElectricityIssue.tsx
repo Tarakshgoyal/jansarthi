@@ -91,8 +91,7 @@ const ElectricityIssue: React.FC<ElectricityIssueProps> = () => {
         description: description.trim(),
         latitude: location.latitude,
         longitude: location.longitude,
-        ward_id: selectedWard.id,
-        ward_name: selectedWard.name,
+        locality_id: selectedWard.id,
         photos: photoData.length > 0 ? photoData : undefined,
       });
 

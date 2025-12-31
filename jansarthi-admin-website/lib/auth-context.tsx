@@ -6,7 +6,7 @@ import { getAccessToken, clearAccessToken, setAccessToken } from "@/lib/api";
 interface User {
   id: number;
   name: string;
-  role: "user" | "parshad" | "pwd_worker";
+  role: "user" | "representative" | "pwd_worker" | "admin";
 }
 
 interface AuthContextType {
@@ -28,19 +28,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const token = getAccessToken();
     if (token) {
       // Try to get user from localStorage
-      const storedUser = localStorage.getItem("pwd_user");
+      const storedUser = localStorage.getItem("admin_user");
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          if (parsedUser.role === "pwd_worker") {
+          if (parsedUser.role === "admin") {
             setUser(parsedUser);
           } else {
             clearAccessToken();
-            localStorage.removeItem("pwd_user");
+            localStorage.removeItem("admin_user");
           }
         } catch {
           clearAccessToken();
-          localStorage.removeItem("pwd_user");
+          localStorage.removeItem("admin_user");
         }
       }
     }
@@ -48,17 +48,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = (token: string, userData: User) => {
-    if (userData.role !== "pwd_worker") {
-      throw new Error("Only PWD Workers can access this dashboard");
+    if (userData.role !== "admin") {
+      throw new Error("Only Administrators can access this dashboard");
     }
     setAccessToken(token);
     setUser(userData);
-    localStorage.setItem("pwd_user", JSON.stringify(userData));
+    localStorage.setItem("admin_user", JSON.stringify(userData));
   };
 
   const logout = () => {
     clearAccessToken();
-    localStorage.removeItem("pwd_user");
+    localStorage.removeItem("admin_user");
     setUser(null);
   };
 

@@ -81,7 +81,7 @@ export default function LoginScreen() {
       </View>
 
       {/* Content Card */}
-      <View className="flex-1 bg-background-0 rounded-t-3xl px-6 pt-8">
+      <View className="flex-1 bg-background-0 rounded-t-3xl px-6 pt-8 pb-6">
         <VStack space="lg" className="flex-1">
           <FormControl isInvalid={!!localError || !!error}>
             <VStack space="sm">
@@ -116,31 +116,36 @@ export default function LoginScreen() {
             </VStack>
           </FormControl>
 
-          <Button
-            size="lg"
-            onPress={handleLogin}
-            isDisabled={isLoading}
-            className="bg-brand-500 rounded-lg shadow-sm"
-          >
-            <ButtonText className="text-typography-white font-semibold">
-              {isLoading ? getText(t.auth.login.sendingOtp) : getText(t.actions.next)}
-            </ButtonText>
-          </Button>
+          {/* Spacer to push button to bottom */}
+          <View className="flex-1" />
 
-          <View className="flex-row justify-center items-center mt-2">
-            <Text size="sm" className="text-typography-500">
-              {getText(t.auth.login.dontHaveAccount)}{' '}
-            </Text>
+          <VStack space="md">
             <Button
-              variant="link"
-              size="sm"
-                onPress={() => router.push('/(auth)/signup')}
+              size="lg"
+              onPress={handleLogin}
+              isDisabled={isLoading}
+              className="bg-brand-500 rounded-lg shadow-sm"
             >
-              <ButtonText className="text-brand-500 font-semibold">
-                {getText(t.auth.login.signUp)}
+              <ButtonText className="text-typography-white font-semibold">
+                {isLoading ? getText(t.auth.login.sendingOtp) : getText(t.actions.next)}
               </ButtonText>
             </Button>
-          </View>
+
+            <View className="flex-row justify-center items-center">
+              <Text size="sm" className="text-typography-500">
+                {getText(t.auth.login.dontHaveAccount)}{' '}
+              </Text>
+              <Button
+                variant="link"
+                size="sm"
+                  onPress={() => router.push('/(auth)/signup')}
+              >
+                <ButtonText className="text-brand-500 font-semibold">
+                  {getText(t.auth.login.signUp)}
+                </ButtonText>
+              </Button>
+            </View>
+          </VStack>
         </VStack>
       </View>
     </View>

@@ -39,12 +39,19 @@ class IssueResponse(BaseModel):
     description: str
     latitude: float
     longitude: float
-    ward_id: Optional[int] = None
-    ward_name: Optional[str] = None
+    locality_id: Optional[int] = None
+    locality_name: Optional[str] = None
     status: IssueStatus
     user_id: Optional[int]
     assigned_parshad_id: Optional[int] = None
     assignment_message: Optional[str] = None
+    
+    # PWD completion data
+    completion_description: Optional[str] = None
+    completion_photo_url: Optional[str] = None
+    completed_at: Optional[datetime] = None
+    completed_by_id: Optional[int] = None
+    
     created_at: datetime
     updated_at: datetime
     photos: list[IssuePhotoResponse] = []
