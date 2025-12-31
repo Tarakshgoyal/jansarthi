@@ -33,7 +33,7 @@ settings = get_settings()
 reports_router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
 
-def build_issue_response(issue: Issue, storage_service) -> IssueResponse:
+def build_issue_response(issue: Issue, storage_service, session: Session) -> IssueResponse:
     """Helper to build IssueResponse with presigned URLs for all photos"""
     # Generate presigned URLs for issue photos
     photos = []
@@ -53,6 +53,13 @@ def build_issue_response(issue: Issue, storage_service) -> IssueResponse:
     if issue.completion_photo_url:
         completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
     
+    # Get locality name if exists
+    locality_name = None
+    if issue.locality_id:
+        locality = session.get(Locality, issue.locality_id)
+        if locality:
+            locality_name = locality.name
+    
     return IssueResponse(
         id=issue.id,
         issue_type=issue.issue_type,
@@ -60,6 +67,7 @@ def build_issue_response(issue: Issue, storage_service) -> IssueResponse:
         latitude=issue.latitude,
         longitude=issue.longitude,
         locality_id=issue.locality_id,
+        locality_name=locality_name,
         status=issue.status,
         user_id=issue.user_id,
         assigned_parshad_id=issue.assigned_parshad_id,
@@ -279,7 +287,7 @@ async def get_issues(
 
     # Build responses with presigned URLs
     storage_service = get_storage_service()
-    issue_responses = [build_issue_response(issue, storage_service) for issue in issues]
+    issue_responses = [build_issue_response(issue, storage_service, session) for issue in issues]
 
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
@@ -387,7 +395,7 @@ async def get_issue(
 
     # Build response with presigned URLs
     storage_service = get_storage_service()
-    return build_issue_response(issue, storage_service)
+    return build_issue_response(issue, storage_service, session)
 
 
 # ==================== Localities (Public) ====================
