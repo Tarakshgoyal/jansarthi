@@ -205,7 +205,7 @@ export const ParshadDashboard: React.FC = () => {
               page_size: 50,
               status:
                 activeTab === "completed"
-                  ? "parshad_reviewed"
+                  ? "representative_reviewed"
                   : undefined,
             }),
       ]);
