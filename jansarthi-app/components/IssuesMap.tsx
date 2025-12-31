@@ -170,18 +170,20 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
   );
 
   const getMarkerColor = (issueType: string, status: string) => {
-    // Status colors take precedence
+    // Status colors take precedence - matching the status badge colors
     switch (status) {
       case 'reported':
         return '#ef4444'; // red
       case 'assigned':
+        return '#f97316'; // orange
       case 'representative_acknowledged':
         return '#eab308'; // yellow
       case 'pwd_working':
+        return '#3b82f6'; // blue
       case 'pwd_completed':
         return '#22c55e'; // green
       case 'representative_reviewed':
-        return '#3b82f6'; // blue
+        return '#10b981'; // emerald
       default:
         // Fallback to issue type colors if status doesn't match
         switch (issueType) {
@@ -229,13 +231,19 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string, localityType?: string) => {
+    const isWard = localityType === 'ward';
+    const repTitle = isWard 
+      ? (language === 'hi' ? 'पार्षद' : 'Parshad')
+      : (language === 'hi' ? 'प्रधान' : 'Pradhan');
+
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
       case 'assigned':
+        return language === 'hi' ? `${repTitle} को सौंपा गया` : `Assigned to ${repTitle}`;
       case 'representative_acknowledged':
-        return getText(t.status.parshadCheck);
+        return language === 'hi' ? `${repTitle} ने स्वीकार किया` : `${repTitle} Acknowledged`;
       case 'pwd_working':
         return getText(t.status.startedWorking);
       case 'pwd_completed':
@@ -451,7 +459,7 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
                     {getIssueTypeLabel(selectedIssue.issue_type)}
                   </Text>
                   <Text className="text-sm text-gray-500">
-                    {getText(t.issuesMap.status)}: {getStatusLabel(selectedIssue.status)}
+                    {getText(t.issuesMap.status)}: {getStatusLabel(selectedIssue.status, selectedIssue.locality_type)}
                   </Text>
                 </VStack>
               </HStack>

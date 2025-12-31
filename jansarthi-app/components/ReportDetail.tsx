@@ -17,39 +17,46 @@ interface ReportDetailProps {
 interface StatusTrackerProps {
   currentStatus: string;
   createdAt: string;
+  localityType?: string;
 }
 
-const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt }) => {
+const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt, localityType }) => {
   const { t, language, getText } = useLanguage();
 
-  // New flow stages:
-  // 1. Reported
-  // 2. Representative Acknowledged (representative assigned and confirmed issue exists)
-  // 3. PWD Working (PWD workers are fixing the issue)
-  // 4. Issue Resolved (Representative reviewed and closed)
+  // Determine the representative title based on locality type
+  const isWard = localityType === 'ward';
+  const repTitle = isWard 
+    ? (language === 'hi' ? 'पार्षद' : 'Parshad')
+    : (language === 'hi' ? 'प्रधान' : 'Pradhan');
+
+  // New flow stages with all 6 steps:
+  // 1. REPORTED → 2. ASSIGNED → 3. REPRESENTATIVE_ACKNOWLEDGED → 4. PWD_WORKING → 5. PWD_COMPLETED → 6. REPRESENTATIVE_REVIEWED
   const stages = [
     { key: 'reported', label: getText(t.status.reported) },
-    { key: 'representative_acknowledged', label: getText(t.status.parshad) },
-    { key: 'pwd_working', label: getText(t.status.pwdClerkStartedWorking) },
-    { key: 'representative_reviewed', label: getText(t.status.finishedWorking) },
+    { key: 'assigned', label: language === 'hi' ? `${repTitle} को सौंपा गया` : `Assigned to ${repTitle}` },
+    { key: 'representative_acknowledged', label: language === 'hi' ? `${repTitle} ने स्वीकार किया` : `${repTitle} Acknowledged` },
+    { key: 'pwd_working', label: language === 'hi' ? 'PWD काम कर रहा है' : 'PWD Working' },
+    { key: 'pwd_completed', label: language === 'hi' ? 'PWD ने पूरा किया' : 'PWD Completed' },
+    { key: 'representative_reviewed', label: language === 'hi' ? `${repTitle} ने समीक्षा की` : `${repTitle} Reviewed` },
   ];
 
   const getCurrentStageIndex = () => {
     const status = currentStatus?.toLowerCase();
     
-    // Map all statuses to appropriate stage
+    // Map each status to its exact stage index
     switch (status) {
       case 'reported':
         return 0;
       case 'assigned':
-      case 'representative_acknowledged':
         return 1;
-      case 'pwd_working':
+      case 'representative_acknowledged':
         return 2;
-      case 'pwd_completed':
-        return 2; // Still in PWD stage visually, but almost done
-      case 'representative_reviewed':
+      case 'pwd_working':
         return 3;
+      case 'pwd_completed':
+        return 4;
+      case 'representative_reviewed':
+        return 5;
       default:
         return 0;
     }
@@ -68,62 +75,76 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt 
 
   return (
     <View className="mt-4 mb-2">
-      {/* Circles and Arrows Row */}
-      <View className="flex-row items-center justify-between px-2">
-        {stages.map((stage, index) => (
-          <React.Fragment key={stage.key}>
-            {/* Stage Circle */}
-            <View className="items-center" style={{ width: 48 }}>
-              <View
-                className={`w-12 h-12 rounded-full border-2 items-center justify-center ${
-                  index <= currentStageIndex
-                    ? 'bg-green-500 border-green-500'
-                    : 'bg-gray-300 border-gray-300'
-                }`}
-              >
-                <View className={`w-6 h-6 rounded-full ${
-                  index <= currentStageIndex ? 'bg-white' : 'bg-gray-400'
-                }`} />
-              </View>
-            </View>
+      {/* Debug info - remove after testing */}
+      {__DEV__ && (
+        <Text className="text-xs text-gray-500 mb-2">
+          Status: {currentStatus} | Locality: {localityType || 'N/A'} | Stage: {currentStageIndex}
+        </Text>
+      )}
+      
+      {/* Vertical Status Tracker */}
+      <VStack space="xs">
+        {stages.map((stage, index) => {
+          const isCompleted = index < currentStageIndex; // Only past stages, not current
+          const isCurrent = index === currentStageIndex;
+          const isLast = index === stages.length - 1;
 
-            {/* Connecting Arrow */}
-            {index < stages.length - 1 && (
-              <View className="flex-1 items-center" style={{ marginHorizontal: 4 }}>
-                <View className="flex-row items-center w-full">
+          return (
+            <View key={stage.key}>
+              <HStack space="md" className="items-start">
+                {/* Circle and Vertical Line */}
+                <View className="items-center" style={{ width: 32 }}>
                   <View
-                    className={`h-0.5 flex-1 ${
-                      index < currentStageIndex ? 'bg-green-500' : 'bg-gray-300'
+                    className={`w-8 h-8 rounded-full border-2 items-center justify-center ${
+                      isCompleted
+                        ? 'bg-green-500 border-green-500'
+                        : isCurrent
+                        ? 'bg-blue-500 border-blue-500'
+                        : 'bg-gray-200 border-gray-300'
                     }`}
-                  />
-                  <View
-                    className="w-0 h-0 border-l-8 border-y-4 border-y-transparent"
-                    style={{
-                      borderLeftColor: index < currentStageIndex ? '#22c55e' : '#d1d5db',
-                    }}
-                  />
+                  >
+                    {(isCompleted || isCurrent) && (
+                      <View className="w-3 h-3 rounded-full bg-white" />
+                    )}
+                  </View>
+                  {!isLast && (
+                    <View
+                      className={`w-0.5 h-8 ${
+                        isCompleted ? 'bg-green-500' : 'bg-gray-300'
+                      }`}
+                    />
+                  )}
                 </View>
-              </View>
-            )}
-          </React.Fragment>
-        ))}
-      </View>
 
-      {/* Labels Row */}
-      <View className="flex-row items-start justify-between px-2 mt-2">
-        {stages.map((stage, index) => (
-          <View key={`label-${stage.key}`} className="items-center" style={{ width: index < stages.length - 1 ? 80 : 70 }}>
-            <Text className="text-xs text-gray-700 text-center font-medium">
-              {stage.label}
-            </Text>
-            {index === 0 && (
-              <Text className="text-xs text-gray-500 mt-1">
-                {formatDate(createdAt)}
-              </Text>
-            )}
-          </View>
-        ))}
-      </View>
+                {/* Label */}
+                <View className="flex-1 pb-2">
+                  <Text
+                    className={`text-sm ${
+                      isCurrent
+                        ? 'text-blue-700 font-semibold'
+                        : isCompleted
+                        ? 'text-green-700 font-medium'
+                        : 'text-gray-500'
+                    }`}
+                  >
+                    {stage.label}
+                  </Text>
+                  {index === 0 && (
+                    <Text className="text-xs text-gray-500 mt-1">
+                      {formatDate(createdAt)}
+                    </Text>
+                  )}
+                  {isCurrent && (
+                    <Text className="text-xs text-blue-600 mt-1">
+                      {language === 'hi' ? 'वर्तमान चरण' : 'Current step'}
+                    </Text>
+                  )}
+                </View>
+              </HStack>
+            </View>
+          );
+        })}
+      </VStack>
     </View>
   );
 };
@@ -187,26 +208,39 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
     switch (status) {
       case 'reported':
         return 'bg-red-500';
-      case 'parshad_check':
+      case 'assigned':
+        return 'bg-orange-500';
+      case 'representative_acknowledged':
         return 'bg-yellow-500';
-      case 'started_working':
-        return 'bg-green-500';
-      case 'finished_work':
+      case 'pwd_working':
         return 'bg-blue-500';
+      case 'pwd_completed':
+        return 'bg-green-500';
+      case 'representative_reviewed':
+        return 'bg-emerald-500';
       default:
         return 'bg-gray-500';
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: string, localityType?: string) => {
+    const isWard = localityType === 'ward';
+    const repTitle = isWard 
+      ? (language === 'hi' ? 'पार्षद' : 'Parshad')
+      : (language === 'hi' ? 'प्रधान' : 'Pradhan');
+
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
-      case 'parshad_check':
-        return getText(t.status.parshadCheck);
-      case 'started_working':
+      case 'assigned':
+        return language === 'hi' ? `${repTitle} को सौंपा गया` : `Assigned to ${repTitle}`;
+      case 'representative_acknowledged':
+        return language === 'hi' ? `${repTitle} ने स्वीकार किया` : `${repTitle} Acknowledged`;
+      case 'pwd_working':
         return getText(t.status.startedWorking);
-      case 'finished_work':
+      case 'pwd_completed':
+        return getText(t.status.pwdCompleted);
+      case 'representative_reviewed':
         return getText(t.status.finishedWork);
       default:
         return status;
@@ -305,6 +339,7 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
           <StatusTracker 
             currentStatus={issue.status} 
             createdAt={issue.created_at}
+            localityType={issue.locality_type}
           />
         </Box>
 
