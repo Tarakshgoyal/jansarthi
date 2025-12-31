@@ -102,12 +102,17 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
         longitude: searchLocation.longitude,
         radius: 50, // 50km radius
       });
-      setIssues(issuesData);
+      
+      // Filter out resolved issues - only show active/pending issues on the map
+      const activeIssues = issuesData.filter(
+        (issue) => issue.status !== 'representative_reviewed'
+      );
+      setIssues(activeIssues);
 
       // Center map on issues if available
-      if (issuesData.length > 0) {
-        const latitudes = issuesData.map(i => i.latitude);
-        const longitudes = issuesData.map(i => i.longitude);
+      if (activeIssues.length > 0) {
+        const latitudes = activeIssues.map(i => i.latitude);
+        const longitudes = activeIssues.map(i => i.longitude);
         
         const minLat = Math.min(...latitudes);
         const maxLat = Math.max(...latitudes);
