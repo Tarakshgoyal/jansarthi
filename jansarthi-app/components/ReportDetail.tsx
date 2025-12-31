@@ -136,7 +136,9 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt,
                   )}
                   {isCurrent && (
                     <Text className="text-xs text-blue-600 mt-1">
-                      {language === 'hi' ? 'वर्तमान चरण' : 'Current step'}
+                      {currentStatus === 'representative_reviewed'
+                        ? (language === 'hi' ? 'पूर्ण' : 'Completed')
+                        : (language === 'hi' ? 'वर्तमान चरण' : 'Current step')}
                     </Text>
                   )}
                 </View>
