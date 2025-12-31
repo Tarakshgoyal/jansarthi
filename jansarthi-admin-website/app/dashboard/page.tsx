@@ -25,9 +25,10 @@ const issueTypeLabels: Record<string, { en: string; hi: string; color: string }>
 const statusLabels: Record<string, { label: string; color: string }> = {
   reported: { label: "Reported", color: "bg-red-100 text-red-800" },
   assigned: { label: "Assigned", color: "bg-blue-100 text-blue-800" },
-  parshad_check: { label: "Parshad Check", color: "bg-yellow-100 text-yellow-800" },
-  started_working: { label: "In Progress", color: "bg-orange-100 text-orange-800" },
-  finished_work: { label: "Completed", color: "bg-green-100 text-green-800" },
+  representative_acknowledged: { label: "Acknowledged", color: "bg-yellow-100 text-yellow-800" },
+  pwd_working: { label: "In Progress", color: "bg-orange-100 text-orange-800" },
+  pwd_completed: { label: "Work Complete", color: "bg-teal-100 text-teal-800" },
+  representative_reviewed: { label: "Reviewed", color: "bg-green-100 text-green-800" },
 };
 
 function StatCard({
@@ -101,12 +102,20 @@ export default function DashboardPage() {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        const [dashboardData, issuesData] = await Promise.all([
-          getPWDDashboard(),
-          getIssues({ limit: 5 }),
-        ]);
+        setError(null);
+        
+        // Fetch dashboard stats (handles both admin and pwd_worker)
+        const dashboardData = await getPWDDashboard();
         setStats(dashboardData);
-        setRecentIssues(issuesData?.issues || []);
+        
+        // Try to fetch recent issues (may fail for admin without PWD access)
+        try {
+          const issuesData = await getIssues({ page_size: 5 });
+          setRecentIssues(issuesData?.issues || []);
+        } catch {
+          // Admin may not have access to PWD issues endpoint
+          setRecentIssues([]);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load dashboard");
       } finally {

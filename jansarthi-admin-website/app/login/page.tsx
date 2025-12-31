@@ -45,8 +45,8 @@ export default function LoginPage() {
     try {
       const response = await verifyOTP(phone, otp);
       
-      if (response.user.role !== "pwd_worker") {
-        setError("Only PWD Workers can access this dashboard");
+      if (response.user.role !== "admin") {
+        setError("Only Administrators can access this dashboard");
         return;
       }
 
@@ -65,14 +65,14 @@ export default function LoginPage() {
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
             <div className="w-20 h-20 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-2xl font-bold">PWD</span>
+              <span className="text-white text-2xl font-bold">Admin</span>
             </div>
           </div>
           <CardTitle className="text-2xl font-bold text-gray-900">
-            PWD Admin Dashboard
+            Admin Dashboard
           </CardTitle>
           <CardDescription className="text-gray-600">
-            जनसार्थी - Public Works Department Portal
+            जनसार्थी - Administrator Portal
           </CardDescription>
         </CardHeader>
         

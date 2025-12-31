@@ -8,30 +8,30 @@ import { VStack } from "@/components/ui/vstack";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import {
-    apiService,
-    PWDWorkerDashboardStats,
-    ParshadIssue
+  apiService,
+  ParshadIssue,
+  PWDWorkerDashboardStats
 } from "@/services/api";
 import { useRouter } from "expo-router";
 import {
-    AlertCircle,
-    CheckCircle,
-    Clock,
-    Construction,
-    Droplet,
-    HardHat,
-    PlayCircle,
-    RefreshCw,
-    Trash2,
-    User,
-    Zap,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Construction,
+  Droplet,
+  HardHat,
+  PlayCircle,
+  RefreshCw,
+  Trash2,
+  User,
+  Zap,
 } from "lucide-react-native";
 import { useCallback, useEffect, useState } from "react";
 import {
-    ActivityIndicator,
-    RefreshControl,
-    ScrollView,
-    View,
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View,
 } from "react-native";
 
 interface StatCardProps {
@@ -108,16 +108,13 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return "bg-warning-100 text-warning-700";
       case "pwd_working":
-      case "started_working":
         return "bg-primary-100 text-primary-700";
       case "pwd_completed":
         return "bg-info-100 text-info-700";
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return "bg-success-100 text-success-700";
       default:
         return "bg-gray-100 text-gray-700";
@@ -126,16 +123,13 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return getText(t.pwd.status.pendingWork);
       case "pwd_working":
-      case "started_working":
         return getText(t.pwd.status.inProgress);
       case "pwd_completed":
         return getText(t.pwd.status.pendingReview);
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return getText(t.pwd.status.completed);
       default:
         return status;
@@ -163,9 +157,9 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
               >
                 {issue.description}
               </Text>
-              {issue.assigned_parshad && (
+              {issue.assigned_representative && (
                 <Text className="text-typography-400 text-xs">
-                  {getText(t.pwd.issueDetail.parshad)}: {issue.assigned_parshad.name}
+                  {getText(t.pwd.issueDetail.parshad)}: {issue.assigned_representative.name}
                 </Text>
               )}
             </VStack>
@@ -258,19 +252,19 @@ export const PWDWorkerDashboard: React.FC = () => {
   }
 
   return (
-    <View className="flex-1 bg-background-50">
+    <View className="flex-1 bg-background-50 gap-4">
       {/* Header */}
-      <View className="bg-amber-600 px-6 pt-16 pb-6">
-        <HStack className="items-center justify-between">
-          <VStack>
+         <View className="bg-amber-600 px-6 pt-16 pb-8">
+        <HStack className="items-center justify-between mb-4">
+          <VStack className="flex-1">
             <Heading size="xl" className="text-typography-white">
               {getText(t.pwd.dashboard.title)}
             </Heading>
-            <Text className="text-amber-100">
+            <Text className="text-amber-100 mt-1">
               {getText(t.pwd.dashboard.welcome)}, {user?.name || "PWD Worker"}
             </Text>
           </VStack>
-          <HStack space="sm" className="items-center">
+          <HStack space="sm" className="items-center ml-4">
             <LanguageSwitcher />
             <Pressable
               onPress={() => router.push('/(app)/profile')}
@@ -282,6 +276,8 @@ export const PWDWorkerDashboard: React.FC = () => {
           </HStack>
         </HStack>
       </View>
+
+
 
       <ScrollView
         className="flex-1"

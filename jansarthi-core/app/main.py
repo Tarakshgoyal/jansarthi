@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import create_db_and_tables
+from app.routes.admin import admin_router
 from app.routes.auth import auth_router
 from app.routes.parshad import parshad_router
 from app.routes.pwd import pwd_router
@@ -44,9 +45,10 @@ app.add_middleware(
 
 # Include routers
 app.include_router(reports_router)
-app.include_router(auth_router) # Auth API
+app.include_router(auth_router)  # Auth API
+app.include_router(admin_router)  # Admin APIs (localities, user management)
 app.include_router(pwd_router)  # PWD Worker APIs
-app.include_router(parshad_router)  # Parshad APIs
+app.include_router(parshad_router)  # Representative APIs
 
 
 @app.get("/", tags=["Root"])

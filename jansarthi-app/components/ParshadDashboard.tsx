@@ -104,11 +104,12 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
     switch (status) {
       case "assigned":
         return "bg-warning-100 text-warning-700";
-      case "parshad_check":
+      case "representative_acknowledged":
         return "bg-info-100 text-info-700";
-      case "started_working":
+      case "pwd_working":
+      case "pwd_completed":
         return "bg-primary-100 text-primary-700";
-      case "finished_work":
+      case "representative_reviewed":
         return "bg-success-100 text-success-700";
       default:
         return "bg-gray-100 text-gray-700";
@@ -119,11 +120,13 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
     switch (status) {
       case "assigned":
         return getText(t.status.assigned);
-      case "parshad_check":
+      case "representative_acknowledged":
         return getText(t.status.parshadCheck);
-      case "started_working":
+      case "pwd_working":
         return getText(t.status.startedWorking);
-      case "finished_work":
+      case "pwd_completed":
+        return getText(t.status.pwdCompleted);
+      case "representative_reviewed":
         return getText(t.status.finishedWork);
       default:
         return status;
@@ -260,9 +263,9 @@ export const ParshadDashboard: React.FC = () => {
             <Heading size="xl" className="text-typography-white">
               {user?.name || "Parshad"}
             </Heading>
-            {user?.village_name && (
+            {user?.locality_name && (
               <Text className="text-typography-white/70 text-sm mt-1">
-                {user.village_name}
+                {user.locality_name}
               </Text>
             )}
           </VStack>

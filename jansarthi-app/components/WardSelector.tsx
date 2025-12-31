@@ -1,30 +1,41 @@
 import { useLanguage } from "@/contexts/LanguageContext";
-import { getWardMapUrl, Ward, WARDS } from "@/config/wards";
-import React, { useState, useMemo } from "react";
+import { apiService, LocalityPublicResponse } from "@/services/api";
 import {
+  ChevronDown,
+  Map,
+  MapPin,
+  Phone,
+  RefreshCw,
+  Search,
+  User,
+  X,
+} from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
   FlatList,
+  Linking,
   Modal,
+  TextInput,
   TouchableOpacity,
   View,
-  Linking,
-  TextInput,
 } from "react-native";
 import { Box } from "./ui/box";
-import { Button, ButtonText } from "./ui/button";
 import { Heading } from "./ui/heading";
 import { HStack } from "./ui/hstack";
 import { Pressable } from "./ui/pressable";
 import { Text } from "./ui/text";
 import { VStack } from "./ui/vstack";
-import {
-  ChevronDown,
-  MapPin,
-  Phone,
-  Search,
-  User,
-  X,
-  Map,
-} from "lucide-react-native";
+
+// Backward compatible Ward interface that maps from LocalityPublicResponse
+export interface Ward {
+  id: number;
+  name: string;
+  nameHindi: string;
+  parshadName: string;
+  address: string;
+  phone: string | null;
+}
 
 interface WardSelectorProps {
   selectedWard: Ward | null;
@@ -34,7 +45,8 @@ interface WardSelectorProps {
 
 /**
  * WardSelector Component
- * A dropdown/modal selector for Dehradun wards with search functionality
+ * A dropdown/modal selector for localities with search functionality
+ * Fetches localities from the API instead of using hardcoded data
  */
 const WardSelector: React.FC<WardSelectorProps> = ({
   selectedWard,
@@ -44,19 +56,63 @@ const WardSelector: React.FC<WardSelectorProps> = ({
   const { getText, language } = useLanguage();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [localities, setLocalities] = useState<Ward[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  // Convert LocalityPublicResponse to Ward format for backward compatibility
+  const convertLocalityToWard = (locality: LocalityPublicResponse): Ward => {
+    const representative = locality.representatives?.[0];
+    return {
+      id: locality.id,
+      name: locality.name,
+      nameHindi: locality.name, // API doesn't have Hindi name yet, using same name
+      parshadName: representative?.name || (language === "hi" ? "प्रतिनिधि नहीं" : "No Representative"),
+      address: "", // Address not available from API
+      phone: null, // Phone not available from public API
+    };
+  };
+
+  // Fetch localities from API
+  const fetchLocalities = async () => {
+    setIsLoading(true);
+    setLoadError(null);
+    try {
+      const response = await apiService.getLocalities();
+      const wards = response.items.map(convertLocalityToWard);
+      setLocalities(wards);
+    } catch (err) {
+      console.error("Failed to fetch localities:", err);
+      setLoadError(language === "hi" ? "स्थान लोड करने में विफल" : "Failed to load localities");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Fetch localities on mount and when modal opens
+  useEffect(() => {
+    if (isModalVisible && localities.length === 0) {
+      fetchLocalities();
+    }
+  }, [isModalVisible]);
+
+  // Also fetch on component mount for initial data
+  useEffect(() => {
+    fetchLocalities();
+  }, []);
 
   const filteredWards = useMemo(() => {
     if (!searchQuery.trim()) {
-      return WARDS;
+      return localities;
     }
     const query = searchQuery.toLowerCase();
-    return WARDS.filter(
+    return localities.filter(
       (ward) =>
         ward.name.toLowerCase().includes(query) ||
         ward.nameHindi.includes(searchQuery) ||
         ward.id.toString() === query
     );
-  }, [searchQuery]);
+  }, [searchQuery, localities]);
 
   const getWardDisplayName = (ward: Ward) => {
     return language === "hi" ? ward.nameHindi : ward.name;
@@ -68,8 +124,9 @@ const WardSelector: React.FC<WardSelectorProps> = ({
     setSearchQuery("");
   };
 
+  // Generate Google Maps URL for locality search
   const handleViewMap = (ward: Ward) => {
-    const mapUrl = getWardMapUrl(ward.id);
+    const mapUrl = `https://www.google.com/maps/search/${encodeURIComponent(ward.name + ", Dehradun, Uttarakhand")}`;
     Linking.openURL(mapUrl);
   };
 
@@ -142,7 +199,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
     <VStack space="sm">
       {/* Label */}
       <Text className="text-typography-700 font-bold">
-        {language === "hi" ? "वार्ड चुनें" : "Select Ward"} *
+        {language === "hi" ? "स्थान चुनें" : "Select Locality"} *
       </Text>
 
       {/* Selector Button */}
@@ -171,7 +228,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
             </HStack>
           ) : (
             <Text className="text-typography-400">
-              {language === "hi" ? "अपना वार्ड चुनें..." : "Select your ward..."}
+              {language === "hi" ? "अपना स्थान चुनें..." : "Select your locality..."}
             </Text>
           )}
           <ChevronDown size={20} className="text-typography-400" />
@@ -187,7 +244,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
           <HStack className="justify-between items-center">
             <VStack>
               <Text className="text-primary-800 text-sm font-medium">
-                {language === "hi" ? "पार्षद" : "Parshad"}: {selectedWard.parshadName}
+                {language === "hi" ? "प्रतिनिधि" : "Representative"}: {selectedWard.parshadName}
               </Text>
               {selectedWard.phone && (
                 <Text className="text-primary-600 text-xs">
@@ -221,7 +278,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
           <View className="bg-brand-500 px-6 pt-16 pb-6">
             <HStack className="justify-between items-center">
               <Heading size="xl" className="text-typography-white">
-                {language === "hi" ? "वार्ड चुनें" : "Select Ward"}
+                {language === "hi" ? "स्थान चुनें" : "Select Locality"}
               </Heading>
               <TouchableOpacity
                 onPress={() => {
@@ -240,8 +297,8 @@ const WardSelector: React.FC<WardSelectorProps> = ({
               <TextInput
                 placeholder={
                   language === "hi"
-                    ? "वार्ड का नाम या नंबर खोजें..."
-                    : "Search ward name or number..."
+                    ? "स्थान का नाम या नंबर खोजें..."
+                    : "Search locality name or number..."
                 }
                 value={searchQuery}
                 onChangeText={setSearchQuery}
@@ -257,22 +314,44 @@ const WardSelector: React.FC<WardSelectorProps> = ({
           </View>
 
           {/* Ward List */}
-          <FlatList
-            data={filteredWards}
-            renderItem={renderWardItem}
-            keyExtractor={(item) => item.id.toString()}
-            contentContainerStyle={{ padding: 16 }}
-            showsVerticalScrollIndicator={false}
-            ListEmptyComponent={
-              <Box className="items-center py-10">
-                <Text className="text-typography-500">
-                  {language === "hi"
-                    ? "कोई वार्ड नहीं मिला"
-                    : "No wards found"}
+          {isLoading ? (
+            <Box className="items-center py-10">
+              <ActivityIndicator size="large" color="#4F46E5" />
+              <Text className="text-typography-500 mt-4">
+                {language === "hi" ? "लोड हो रहा है..." : "Loading..."}
+              </Text>
+            </Box>
+          ) : loadError ? (
+            <Box className="items-center py-10">
+              <Text className="text-error-500 mb-4">{loadError}</Text>
+              <TouchableOpacity
+                onPress={fetchLocalities}
+                className="bg-primary-500 rounded-lg px-4 py-2 flex-row items-center"
+              >
+                <RefreshCw size={16} color="#fff" />
+                <Text className="text-white ml-2">
+                  {language === "hi" ? "पुनः प्रयास करें" : "Retry"}
                 </Text>
-              </Box>
-            }
-          />
+              </TouchableOpacity>
+            </Box>
+          ) : (
+            <FlatList
+              data={filteredWards}
+              renderItem={renderWardItem}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={{ padding: 16 }}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={
+                <Box className="items-center py-10">
+                  <Text className="text-typography-500">
+                    {language === "hi"
+                      ? "कोई स्थान नहीं मिला"
+                      : "No localities found"}
+                  </Text>
+                </Box>
+              }
+            />
+          )}
         </View>
       </Modal>
     </VStack>

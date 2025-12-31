@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models.issue import OTP, User
+from app.models.issue import OTP, Locality, User
 from app.schemas.auth import (
     LoginRequest,
     OTPResponse,
@@ -20,6 +20,28 @@ from app.settings.config import get_settings
 
 settings = get_settings()
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+def build_user_response(user: User, session: Session) -> UserResponse:
+    """Build UserResponse with locality_name from locality relationship"""
+    locality_name = None
+    if user.locality_id:
+        locality = session.get(Locality, user.locality_id)
+        if locality:
+            locality_name = locality.name
+    
+    return UserResponse(
+        id=user.id,
+        name=user.name,
+        mobile_number=user.mobile_number,
+        role=user.role,
+        is_active=user.is_active,
+        is_verified=user.is_verified,
+        locality_id=user.locality_id,
+        locality_name=locality_name,
+        created_at=user.created_at,
+        updated_at=user.updated_at,
+    )
 
 
 @auth_router.post(
@@ -255,7 +277,7 @@ async def verify_otp(
         refresh_token=tokens["refresh_token"],
         token_type=tokens["token_type"],
         expires_in=tokens["expires_in"],
-        user=UserResponse.model_validate(user)
+        user=build_user_response(user, session)
     )
 
 @auth_router.post(
@@ -300,7 +322,7 @@ async def refresh_token(
         refresh_token=tokens["refresh_token"],
         token_type=tokens["token_type"],
         expires_in=tokens["expires_in"],
-        user=UserResponse.model_validate(user)
+        user=build_user_response(user, session)
     )
 
 
@@ -311,13 +333,14 @@ async def refresh_token(
 )
 async def get_me(
     current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
 ):
     """
     Get current authenticated user's profile
     
     Requires valid access token in Authorization header.
     """
-    return current_user
+    return build_user_response(current_user, session)
 
 
 @auth_router.post(

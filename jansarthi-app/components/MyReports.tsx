@@ -21,22 +21,31 @@ interface StatusTrackerProps {
 const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt }) => {
   const { t, language, getText } = useLanguage();
 
-  // The stages now include 'assigned' which maps to 'parshad' visually
-  // assigned = PWD assigned to Parshad, parshad_check = Parshad acknowledged
+  // New flow stages:
+  // reported → assigned/representative_acknowledged → pwd_working → representative_reviewed
   const stages = [
     { key: 'reported', label: getText(t.status.reported) },
-    { key: 'assigned', label: getText(t.status.parshad) }, // assigned = Parshad assigned
-    { key: 'started_working', label: getText(t.status.pwdClerkStartedWorking) },
-    { key: 'finished_work', label: getText(t.status.finishedWorking) },
+    { key: 'assigned', label: getText(t.status.parshad) },
+    { key: 'pwd_working', label: getText(t.status.pwdClerkStartedWorking) },
+    { key: 'representative_reviewed', label: getText(t.status.finishedWorking) },
   ];
 
   const getCurrentStageIndex = () => {
     const status = currentStatus?.toLowerCase();
-    // Map parshad_check to assigned stage (both mean Parshad is involved)
-    if (status === 'parshad_check') {
-      return stages.findIndex(stage => stage.key === 'assigned');
+    switch (status) {
+      case 'reported':
+        return 0;
+      case 'assigned':
+      case 'representative_acknowledged':
+        return 1;
+      case 'pwd_working':
+      case 'pwd_completed':
+        return 2;
+      case 'representative_reviewed':
+        return 3;
+      default:
+        return 0;
     }
-    return stages.findIndex(stage => stage.key === status);
   };
 
   const currentStageIndex = getCurrentStageIndex();
@@ -188,11 +197,13 @@ const MyReports: React.FC<MyReportsProps> = () => {
     switch (status) {
       case 'reported':
         return 'bg-red-100 text-red-800';
-      case 'parshad_check':
+      case 'assigned':
+      case 'representative_acknowledged':
         return 'bg-yellow-100 text-yellow-800';
-      case 'started_working':
+      case 'pwd_working':
+      case 'pwd_completed':
         return 'bg-green-100 text-green-800';
-      case 'finished_work':
+      case 'representative_reviewed':
         return 'bg-blue-100 text-blue-800';
       default:
         return 'bg-gray-100 text-gray-800';
@@ -203,11 +214,14 @@ const MyReports: React.FC<MyReportsProps> = () => {
     switch (status) {
       case 'reported':
         return getText(t.status.reported);
-      case 'parshad_check':
+      case 'assigned':
+      case 'representative_acknowledged':
         return getText(t.status.parshadCheck);
-      case 'started_working':
+      case 'pwd_working':
         return getText(t.status.startedWorking);
-      case 'finished_work':
+      case 'pwd_completed':
+        return getText(t.status.pwdCompleted);
+      case 'representative_reviewed':
         return getText(t.status.finishedWork);
       default:
         return status;

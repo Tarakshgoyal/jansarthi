@@ -39,20 +39,46 @@ export const setUserData = async (userData: any) => {
 };
 
 // User Roles
-export type UserRole = 'user' | 'parshad' | 'pwd_worker';
+export type UserRole = 'user' | 'representative' | 'pwd_worker' | 'admin';
+
+// Locality Types
+export type LocalityType = 'ward' | 'village';
 
 // Issue Statuses - New Flow
 export type IssueStatus = 
   | 'reported'
   | 'assigned'
-  | 'parshad_acknowledged'
+  | 'representative_acknowledged'
   | 'pwd_working'
   | 'pwd_completed'
-  | 'parshad_reviewed'
-  // Legacy statuses
-  | 'parshad_check'
-  | 'started_working'
-  | 'finished_work';
+  | 'representative_reviewed';
+
+// Locality Types
+export interface Locality {
+  id: number;
+  name: string;
+  type: LocalityType;
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface RepresentativeInfo {
+  id: number;
+  name: string;
+}
+
+export interface LocalityPublicResponse {
+  id: number;
+  name: string;
+  type: LocalityType;
+  representatives: RepresentativeInfo[];
+}
+
+export interface LocalityListPublicResponse {
+  items: LocalityPublicResponse[];
+  total: number;
+}
 
 // API Types
 export interface User {
@@ -62,9 +88,9 @@ export interface User {
   role: UserRole;
   is_active: boolean;
   is_verified: boolean;
-  village_name?: string;
-  latitude?: number;
-  longitude?: number;
+  locality_id?: number;
+  locality_name?: string;
+  locality_type?: LocalityType;
   created_at: string;
   updated_at: string;
 }
@@ -103,10 +129,18 @@ export interface Issue {
   description: string;
   latitude: number;
   longitude: number;
-  ward_id?: number;
-  ward_name?: string;
+  locality_id?: number;
+  locality_name?: string;
+  locality_type?: LocalityType;
   status: string;
   user_id: number;
+  assigned_representative_id?: number;
+  assignment_message?: string;
+  // Completion data (when PWD completes work)
+  completion_description?: string;
+  completion_photo_url?: string;
+  completed_at?: string;
+  completed_by_id?: number;
   created_at: string;
   updated_at: string;
   photos: IssuePhoto[];
@@ -130,14 +164,13 @@ export interface IssueListResponse {
   total_pages: number;
 }
 
-// Parshad Types
-export interface ParshadInfo {
+// Representative Types
+export interface RepresentativeInfoDetail {
   id: number;
   name: string;
   mobile_number: string;
-  village_name?: string;
-  latitude?: number;
-  longitude?: number;
+  locality_id?: number;
+  locality_name?: string;
 }
 
 export interface UserInfo {
@@ -146,34 +179,42 @@ export interface UserInfo {
   mobile_number: string;
 }
 
-export interface ParshadIssue {
+export interface RepresentativeIssue {
   id: number;
   issue_type: string;
   description: string;
   latitude: number;
   longitude: number;
+  locality_id?: number;
+  locality_name?: string;
   status: string;
   user_id?: number;
   reporter?: UserInfo;
-  assigned_parshad_id?: number;
-  assigned_parshad?: ParshadInfo;
+  assigned_representative_id?: number;
+  assigned_representative?: RepresentativeInfoDetail;
   assignment_notes?: string;
   progress_notes?: string;
+  // Completion data (when PWD completes work)
+  completion_description?: string;
+  completion_photo_url?: string;
+  completed_at?: string;
+  completed_by_id?: number;
+  completed_by_name?: string;
   created_at: string;
   updated_at: string;
   photo_count: number;
   photos?: string[]; // Photo URLs
 }
 
-export interface ParshadIssueListResponse {
-  items: ParshadIssue[];
+export interface RepresentativeIssueListResponse {
+  items: RepresentativeIssue[];
   total: number;
   page: number;
   page_size: number;
   total_pages: number;
 }
 
-export interface ParshadDashboardStats {
+export interface RepresentativeDashboardStats {
   total_assigned: number;
   pending_acknowledgement: number;
   in_progress: number;
@@ -341,8 +382,7 @@ class ApiService {
     description: string;
     latitude: number;
     longitude: number;
-    ward_id?: number;
-    ward_name?: string;
+    locality_id?: number;
     photos?: { uri: string; name: string; type: string }[];
   }): Promise<Issue> {
     const token = await getAccessToken();
@@ -352,8 +392,7 @@ class ApiService {
       description: data.description,
       latitude: data.latitude,
       longitude: data.longitude,
-      ward_id: data.ward_id,
-      ward_name: data.ward_name,
+      locality_id: data.locality_id,
       photos_count: data.photos?.length || 0,
       has_token: !!token,
       api_url: `${this.baseURL}/api/reports`,
@@ -366,12 +405,9 @@ class ApiService {
     formData.append('latitude', data.latitude.toString());
     formData.append('longitude', data.longitude.toString());
     
-    // Add ward info if provided
-    if (data.ward_id) {
-      formData.append('ward_id', data.ward_id.toString());
-    }
-    if (data.ward_name) {
-      formData.append('ward_name', data.ward_name);
+    // Add locality id if provided
+    if (data.locality_id) {
+      formData.append('locality_id', data.locality_id.toString());
     }
 
     // Add photos if provided (React Native format)
@@ -497,9 +533,9 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  // ==================== Parshad APIs ====================
+  // ==================== Representative (Parshad/Pradhan) APIs ====================
 
-  async getParshadDashboard(): Promise<ParshadDashboardStats> {
+  async getRepresentativeDashboard(): Promise<RepresentativeDashboardStats> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}/api/parshad/dashboard`, {
       method: 'GET',
@@ -508,12 +544,12 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getParshadIssues(params?: {
+  async getRepresentativeIssues(params?: {
     page?: number;
     page_size?: number;
     issue_type?: string;
     status?: string;
-  }): Promise<ParshadIssueListResponse> {
+  }): Promise<RepresentativeIssueListResponse> {
     const headers = await this.getAuthHeaders();
     
     const queryParams = new URLSearchParams();
@@ -532,10 +568,10 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getParshadPendingIssues(params?: {
+  async getRepresentativePendingIssues(params?: {
     page?: number;
     page_size?: number;
-  }): Promise<ParshadIssueListResponse> {
+  }): Promise<RepresentativeIssueListResponse> {
     const headers = await this.getAuthHeaders();
     
     const queryParams = new URLSearchParams();
@@ -552,10 +588,10 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getParshadInProgressIssues(params?: {
+  async getRepresentativeInProgressIssues(params?: {
     page?: number;
     page_size?: number;
-  }): Promise<ParshadIssueListResponse> {
+  }): Promise<RepresentativeIssueListResponse> {
     const headers = await this.getAuthHeaders();
     
     const queryParams = new URLSearchParams();
@@ -572,7 +608,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getParshadIssueDetail(issueId: number): Promise<ParshadIssue> {
+  async getRepresentativeIssueDetail(issueId: number): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}`, {
       method: 'GET',
@@ -581,7 +617,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async acknowledgeIssue(issueId: number): Promise<ParshadIssue> {
+  async acknowledgeIssue(issueId: number): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/acknowledge`, {
       method: 'POST',
@@ -590,7 +626,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async startWorkOnIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+  async startWorkOnIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
     const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/start-work${queryParams}`, {
@@ -600,7 +636,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async completeIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+  async completeIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
     const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/complete${queryParams}`, {
@@ -612,14 +648,14 @@ class ApiService {
 
   async updateIssueWithPhotos(data: {
     issueId: number;
-    status: string;
+    new_status: string;
     progress_notes?: string;
     photos?: { uri: string; name: string; type: string }[];
-  }): Promise<ParshadIssue> {
+  }): Promise<RepresentativeIssue> {
     const token = await getAccessToken();
     
     const formData = new FormData();
-    formData.append('status', data.status);
+    formData.append('new_status', data.new_status);
     if (data.progress_notes) {
       formData.append('progress_notes', data.progress_notes);
     }
@@ -654,8 +690,8 @@ class ApiService {
     return response.json();
   }
 
-  // Parshad Review Issue (new flow)
-  async reviewIssue(issueId: number, notes?: string): Promise<ParshadIssue> {
+  // Representative Review Issue (new flow)
+  async reviewIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
     const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/review${queryParams}`, {
@@ -665,10 +701,10 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async getParshadPendingReviewIssues(params?: {
+  async getRepresentativePendingReviewIssues(params?: {
     page?: number;
     page_size?: number;
-  }): Promise<ParshadIssueListResponse> {
+  }): Promise<RepresentativeIssueListResponse> {
     const headers = await this.getAuthHeaders();
     
     const queryParams = new URLSearchParams();
@@ -701,7 +737,7 @@ class ApiService {
     page_size?: number;
     issue_type?: string;
     filter_type?: 'pending' | 'in_progress' | 'completed';
-  }): Promise<ParshadIssueListResponse> {
+  }): Promise<RepresentativeIssueListResponse> {
     const headers = await this.getAuthHeaders();
     
     const queryParams = new URLSearchParams();
@@ -717,10 +753,11 @@ class ApiService {
         headers,
       }
     );
+
     return this.handleResponse(response);
   }
 
-  async getPWDIssueDetail(issueId: number): Promise<ParshadIssue> {
+  async getPWDIssueDetail(issueId: number): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}`, {
       method: 'GET',
@@ -729,7 +766,7 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async pwdStartWork(issueId: number, notes?: string): Promise<ParshadIssue> {
+  async pwdStartWork(issueId: number, notes?: string): Promise<RepresentativeIssue> {
     const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
     const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/start-work${queryParams}`, {
@@ -739,15 +776,104 @@ class ApiService {
     return this.handleResponse(response);
   }
 
-  async pwdCompleteWork(issueId: number, notes?: string): Promise<ParshadIssue> {
-    const headers = await this.getAuthHeaders();
-    const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
-    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/complete-work${queryParams}`, {
+  async pwdCompleteWork(data: {
+    issueId: number;
+    description: string;
+    photo: { uri: string; type: string; name: string };
+  }): Promise<RepresentativeIssue> {
+    const token = await getAccessToken();
+    const formData = new FormData();
+    formData.append('description', data.description);
+    formData.append('photo', {
+      uri: data.photo.uri,
+      type: data.photo.type,
+      name: data.photo.name,
+    } as unknown as Blob);
+
+    const response = await fetch(`${this.baseURL}/api/pwd/issues/${data.issueId}/complete-work`, {
       method: 'POST',
-      headers,
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        // Note: Don't set Content-Type for FormData, browser/RN will set it with boundary
+      },
+      body: formData,
     });
     return this.handleResponse(response);
+  }
+
+  // ==================== Locality APIs (Public) ====================
+
+  async getLocalities(params?: {
+    type?: LocalityType;
+    search?: string;
+  }): Promise<LocalityListPublicResponse> {
+    const queryParams = new URLSearchParams();
+    if (params?.type) queryParams.append('type', params.type);
+    if (params?.search) queryParams.append('search', params.search);
+
+    const response = await fetch(
+      `${this.baseURL}/api/reports/localities/all?${queryParams.toString()}`,
+      {
+        method: 'GET',
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  async getLocality(localityId: number): Promise<LocalityPublicResponse> {
+    const response = await fetch(
+      `${this.baseURL}/api/reports/localities/${localityId}`,
+      {
+        method: 'GET',
+      }
+    );
+    return this.handleResponse(response);
+  }
+
+  // Legacy method aliases for backward compatibility
+  async getParshadDashboard(): Promise<RepresentativeDashboardStats> {
+    return this.getRepresentativeDashboard();
+  }
+
+  async getParshadIssues(params?: {
+    page?: number;
+    page_size?: number;
+    issue_type?: string;
+    status?: string;
+  }): Promise<RepresentativeIssueListResponse> {
+    return this.getRepresentativeIssues(params);
+  }
+
+  async getParshadPendingIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<RepresentativeIssueListResponse> {
+    return this.getRepresentativePendingIssues(params);
+  }
+
+  async getParshadInProgressIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<RepresentativeIssueListResponse> {
+    return this.getRepresentativeInProgressIssues(params);
+  }
+
+  async getParshadIssueDetail(issueId: number): Promise<RepresentativeIssue> {
+    return this.getRepresentativeIssueDetail(issueId);
+  }
+
+  async getParshadPendingReviewIssues(params?: {
+    page?: number;
+    page_size?: number;
+  }): Promise<RepresentativeIssueListResponse> {
+    return this.getRepresentativePendingReviewIssues(params);
   }
 }
 
 export const apiService = new ApiService();
+
+// Type aliases for backward compatibility
+export type ParshadDashboardStats = RepresentativeDashboardStats;
+export type ParshadIssue = RepresentativeIssue;
+export type ParshadIssueListResponse = RepresentativeIssueListResponse;
+export type ParshadInfo = RepresentativeInfoDetail;

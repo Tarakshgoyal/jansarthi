@@ -14,7 +14,7 @@ from fastapi import (
 from sqlmodel import Session, select
 
 from app.database import get_session
-from app.models.issue import Issue, IssuePhoto, IssueStatus, IssueType, User, UserRole
+from app.models.issue import Issue, IssuePhoto, IssueStatus, IssueType, Locality, LocalityType, User, UserRole
 from app.schemas.issue import (
     IssueCreate,
     IssueListResponse,
@@ -33,6 +33,47 @@ settings = get_settings()
 reports_router = APIRouter(prefix="/api/reports", tags=["Reports"])
 
 
+def build_issue_response(issue: Issue, storage_service) -> IssueResponse:
+    """Helper to build IssueResponse with presigned URLs for all photos"""
+    # Generate presigned URLs for issue photos
+    photos = []
+    for photo in issue.photos:
+        photo_response = IssuePhotoResponse(
+            id=photo.id,
+            photo_url=storage_service.get_file_url(photo.photo_url),
+            filename=photo.filename,
+            file_size=photo.file_size,
+            content_type=photo.content_type,
+            created_at=photo.created_at,
+        )
+        photos.append(photo_response)
+    
+    # Get completion photo URL if exists
+    completion_photo_url = None
+    if issue.completion_photo_url:
+        completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
+    
+    return IssueResponse(
+        id=issue.id,
+        issue_type=issue.issue_type,
+        description=issue.description,
+        latitude=issue.latitude,
+        longitude=issue.longitude,
+        locality_id=issue.locality_id,
+        status=issue.status,
+        user_id=issue.user_id,
+        assigned_parshad_id=issue.assigned_parshad_id,
+        assignment_message=None,
+        completion_description=issue.completion_description,
+        completion_photo_url=completion_photo_url,
+        completed_at=issue.completed_at,
+        completed_by_id=issue.completed_by_id,
+        created_at=issue.created_at,
+        updated_at=issue.updated_at,
+        photos=photos,
+    )
+
+
 @reports_router.post(
     "",
     response_model=IssueResponse,
@@ -44,8 +85,7 @@ async def create_issue(
     description: str = Form(..., min_length=10, max_length=2000),
     latitude: float = Form(..., ge=-90, le=90),
     longitude: float = Form(..., ge=-180, le=180),
-    ward_id: Optional[int] = Form(None, description="Ward number (1-100)"),
-    ward_name: Optional[str] = Form(None, max_length=200, description="Ward name"),
+    locality_id: Optional[int] = Form(None, description="Locality ID (ward or village)"),
     photos: list[UploadFile] = File(default=[]),
     current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
@@ -59,8 +99,7 @@ async def create_issue(
     - **description**: Detailed description of the issue
     - **latitude**: Location latitude
     - **longitude**: Location longitude
-    - **ward_id**: Ward number (1-100) for Dehradun Nagar Nigam
-    - **ward_name**: Ward name
+    - **locality_id**: Locality ID (ward or village)
     - **photos**: Up to 3 photos of the issue
     
     The user_id is automatically extracted from the authentication token.
@@ -92,17 +131,17 @@ async def create_issue(
         # Reset file pointer for later use
         await photo.seek(0)
 
-    # Auto-assign to Parshad of this ward if ward_id is provided
+    # Auto-assign to Parshad of this ward if locality_id is provided
     assigned_parshad_id = None
     assignment_message = None
     initial_status = IssueStatus.REPORTED
     
-    if ward_id is not None:
+    if locality_id is not None:
         # Find a Parshad assigned to this ward
         parshad = session.exec(
             select(User).where(
-                User.role == UserRole.PARSHAD,
-                User.ward_id == ward_id,
+                User.role == UserRole.REPRESENTATIVE,
+                User.locality_id == locality_id,
                 User.is_active == True
             )
         ).first()
@@ -110,9 +149,9 @@ async def create_issue(
         if parshad:
             assigned_parshad_id = parshad.id
             initial_status = IssueStatus.ASSIGNED
-            assignment_message = f"Auto-assigned to Parshad {parshad.name} of ward {ward_id}"
+            assignment_message = f"Auto-assigned to Parshad {parshad.name} of ward {locality_id}"
         else:
-            assignment_message = f"No Parshad assigned to ward {ward_id}. Issue is unassigned."
+            assignment_message = f"No Parshad assigned to ward {locality_id}. Issue is unassigned."
 
     # Create issue record
     new_issue = Issue(
@@ -120,8 +159,7 @@ async def create_issue(
         description=description,
         latitude=latitude,
         longitude=longitude,
-        ward_id=ward_id,
-        ward_name=ward_name,
+        locality_id=locality_id,
         user_id=current_user.id,
         assigned_parshad_id=assigned_parshad_id,
         assignment_notes=assignment_message,
@@ -177,8 +215,7 @@ async def create_issue(
         description=new_issue.description,
         latitude=new_issue.latitude,
         longitude=new_issue.longitude,
-        ward_id=new_issue.ward_id,
-        ward_name=new_issue.ward_name,
+        locality_id=new_issue.locality_id,
         status=new_issue.status,
         user_id=new_issue.user_id,
         assigned_parshad_id=new_issue.assigned_parshad_id,
@@ -240,16 +277,14 @@ async def get_issues(
 
     issues = session.exec(query).all()
 
-    # Generate presigned URLs for photos
+    # Build responses with presigned URLs
     storage_service = get_storage_service()
-    for issue in issues:
-        for photo in issue.photos:
-            photo.photo_url = storage_service.get_file_url(photo.photo_url)
+    issue_responses = [build_issue_response(issue, storage_service) for issue in issues]
 
     total_pages = math.ceil(total / page_size) if total > 0 else 1
 
     return IssueListResponse(
-        items=issues,
+        items=issue_responses,
         total=total,
         page=page,
         page_size=page_size,
@@ -337,6 +372,10 @@ async def get_issue(
     Get details of a specific issue report by ID.
 
     - **issue_id**: The ID of the issue to retrieve
+    
+    Returns full issue details including:
+    - Issue photos (original report)
+    - Completion description and photo (when PWD worker marks complete)
     """
     issue = session.get(Issue, issue_id)
 
@@ -346,9 +385,135 @@ async def get_issue(
             detail=f"Issue with id {issue_id} not found",
         )
 
-    # Generate presigned URLs for photos
+    # Build response with presigned URLs
     storage_service = get_storage_service()
-    for photo in issue.photos:
-        photo.photo_url = storage_service.get_file_url(photo.photo_url)
+    return build_issue_response(issue, storage_service)
 
-    return issue
+
+# ==================== Localities (Public) ====================
+
+from pydantic import BaseModel
+
+
+class RepresentativeInfo(BaseModel):
+    """Representative info for public view"""
+    id: int
+    name: str
+    
+    class Config:
+        from_attributes = True
+
+
+class LocalityPublicResponse(BaseModel):
+    """Public locality response with representative info"""
+    id: int
+    name: str
+    type: LocalityType
+    representatives: list[RepresentativeInfo] = []
+    
+    class Config:
+        from_attributes = True
+
+
+class LocalityListPublicResponse(BaseModel):
+    """List of localities for public view"""
+    items: list[LocalityPublicResponse]
+    total: int
+
+
+@reports_router.get(
+    "/localities/all",
+    response_model=LocalityListPublicResponse,
+    summary="Get all localities with their representatives",
+)
+async def get_all_localities(
+    locality_type: Optional[LocalityType] = Query(None, alias="type", description="Filter by type (ward/village)"),
+    search: Optional[str] = Query(None, description="Search by locality name"),
+    session: Session = Depends(get_session),
+):
+    """
+    Get a list of all active localities with their assigned representatives.
+    
+    **Public Endpoint**: No authentication required.
+    
+    - **type**: Filter by locality type (ward or village)
+    - **search**: Search localities by name
+    
+    Returns locality info with list of representatives assigned to each.
+    """
+    query = select(Locality).where(Locality.is_active == True)
+    
+    if locality_type:
+        query = query.where(Locality.type == locality_type)
+    
+    if search:
+        query = query.where(Locality.name.contains(search))
+    
+    query = query.order_by(Locality.name)
+    localities = session.exec(query).all()
+    
+    items = []
+    for loc in localities:
+        # Get representatives for this locality
+        reps = session.exec(
+            select(User).where(
+                User.locality_id == loc.id,
+                User.role == UserRole.REPRESENTATIVE,
+                User.is_active == True
+            )
+        ).all()
+        
+        items.append(LocalityPublicResponse(
+            id=loc.id,
+            name=loc.name,
+            type=loc.type,
+            representatives=[
+                RepresentativeInfo(id=r.id, name=r.name) for r in reps
+            ]
+        ))
+    
+    return LocalityListPublicResponse(
+        items=items,
+        total=len(items)
+    )
+
+
+@reports_router.get(
+    "/localities/{locality_id}",
+    response_model=LocalityPublicResponse,
+    summary="Get locality details with representatives",
+)
+async def get_locality_details(
+    locality_id: int,
+    session: Session = Depends(get_session),
+):
+    """
+    Get details of a specific locality including its representatives.
+    
+    **Public Endpoint**: No authentication required.
+    """
+    locality = session.get(Locality, locality_id)
+    
+    if not locality or not locality.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Locality not found"
+        )
+    
+    # Get representatives for this locality
+    reps = session.exec(
+        select(User).where(
+            User.locality_id == locality.id,
+            User.role == UserRole.REPRESENTATIVE,
+            User.is_active == True
+        )
+    ).all()
+    
+    return LocalityPublicResponse(
+        id=locality.id,
+        name=locality.name,
+        type=locality.type,
+        representatives=[
+            RepresentativeInfo(id=r.id, name=r.name) for r in reps
+        ]
+    )

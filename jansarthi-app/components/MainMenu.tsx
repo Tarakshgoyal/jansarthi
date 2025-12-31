@@ -3,11 +3,11 @@ import { IssueTypeCard } from "@/components/IssueTypeCard";
 import { MenuCard } from "@/components/MenuCard";
 import { QuickActionItem } from "@/components/QuickActionItem";
 import {
-  Actionsheet,
-  ActionsheetBackdrop,
-  ActionsheetContent,
-  ActionsheetDragIndicator,
-  ActionsheetDragIndicatorWrapper,
+    Actionsheet,
+    ActionsheetBackdrop,
+    ActionsheetContent,
+    ActionsheetDragIndicator,
+    ActionsheetDragIndicatorWrapper,
 } from "@/components/ui/actionsheet";
 import { Box } from "@/components/ui/box";
 import { Grid, GridItem } from "@/components/ui/grid";
@@ -18,13 +18,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useRouter } from "expo-router";
 import {
-  Construction,
-  Droplet,
-  Eye,
-  Map,
-  Plus,
-  Trash2,
-  Zap
+    Construction,
+    Droplet,
+    Eye,
+    Map,
+    Plus,
+    Trash2,
+    Zap
 } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
@@ -35,9 +35,9 @@ export const MainMenu = () => {
   const router = useRouter();
   const [showIssueTypeSheet, setShowIssueTypeSheet] = useState(false);
 
-  // Redirect Parshad users to their dashboard
+  // Redirect Representative users to their dashboard
   useEffect(() => {
-    if (!isLoading && isAuthenticated && user?.role === 'parshad') {
+    if (!isLoading && isAuthenticated && user?.role === 'representative') {
       router.replace('/(app)/parshad-dashboard');
     }
     // PWD workers would go to their own dashboard (to be implemented)

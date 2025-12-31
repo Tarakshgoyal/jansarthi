@@ -6,7 +6,7 @@ import { VStack } from '@/components/ui/vstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { apiService, Issue } from '@/services/api';
 import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
-import { Calendar, Construction, Droplet, MapPin, Trash2, Zap } from 'lucide-react-native';
+import { Building, Calendar, Construction, Droplet, MapPin, Trash2, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, View } from 'react-native';
 
@@ -24,14 +24,14 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt 
 
   // New flow stages:
   // 1. Reported
-  // 2. Parshad Acknowledged (parshad assigned and confirmed issue exists)
+  // 2. Representative Acknowledged (representative assigned and confirmed issue exists)
   // 3. PWD Working (PWD workers are fixing the issue)
-  // 4. Issue Resolved (Parshad reviewed and closed)
+  // 4. Issue Resolved (Representative reviewed and closed)
   const stages = [
     { key: 'reported', label: getText(t.status.reported) },
-    { key: 'parshad_acknowledged', label: getText(t.status.parshad) },
+    { key: 'representative_acknowledged', label: getText(t.status.parshad) },
     { key: 'pwd_working', label: getText(t.status.pwdClerkStartedWorking) },
-    { key: 'parshad_reviewed', label: getText(t.status.finishedWorking) },
+    { key: 'representative_reviewed', label: getText(t.status.finishedWorking) },
   ];
 
   const getCurrentStageIndex = () => {
@@ -42,16 +42,13 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt 
       case 'reported':
         return 0;
       case 'assigned':
-      case 'parshad_acknowledged':
-      case 'parshad_check':
+      case 'representative_acknowledged':
         return 1;
       case 'pwd_working':
-      case 'started_working':
         return 2;
       case 'pwd_completed':
         return 2; // Still in PWD stage visually, but almost done
-      case 'parshad_reviewed':
-      case 'finished_work':
+      case 'representative_reviewed':
         return 3;
       default:
         return 0;
@@ -320,6 +317,45 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
             {issue.description}
           </Text>
         </Box>
+
+        {/* Completion Information (when work is completed) */}
+        {(issue.status === 'pwd_completed' || issue.status === 'representative_reviewed') && 
+         issue.completion_description && (
+          <Box className="bg-green-50 p-4 shadow-sm border-l-4 border-green-500">
+            <Heading size="md" className="text-green-800 mb-3">
+              {getText(t.pwd.status.completionDescription)}
+            </Heading>
+            <Text className="text-green-700 leading-6 mb-3">
+              {issue.completion_description}
+            </Text>
+            {issue.completed_at && (
+              <HStack className="items-center" space="sm">
+                <Calendar size={16} color="#15803d" />
+                <Text className="text-green-600 text-sm">
+                  {getText(t.pwd.status.completedAt)}: {formatDateTime(issue.completed_at)}
+                </Text>
+              </HStack>
+            )}
+            {issue.completion_photo_url && (
+              <View className="mt-3 rounded-lg overflow-hidden border border-green-200">
+                <Image
+                  source={{ uri: issue.completion_photo_url }}
+                  style={{ 
+                    width: screenWidth - 32 - 32, 
+                    height: 250,
+                    resizeMode: 'cover',
+                  }}
+                />
+                <View className="bg-green-100 p-2">
+                  <Text className="text-xs text-green-700">
+                    {language === 'hi' ? 'पूर्ण किए गए काम की फोटो' : 'Completion Photo'}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </Box>
+        )}
+
         {/* Attached Photos */}
         {issue.photos && issue.photos.length > 0 && (
           <Box className="bg-white p-4 shadow-sm">
@@ -354,6 +390,18 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
             {getText(t.reportDetail.reportInformation)}
           </Heading>
           <VStack space="md">
+            {/* Locality Information */}
+            {(issue.locality_id || issue.locality_name) && (
+              <HStack className="items-center" space="sm">
+                <Building size={18} color="#6b7280" />
+                <VStack className="flex-1">
+                  <Text className="text-xs text-gray-500">{getText(t.locality.locality)}</Text>
+                  <Text className="text-gray-800 font-medium">
+                    {issue.locality_name || `${getText(t.locality.locality)} ${issue.locality_id}`}
+                  </Text>
+                </VStack>
+              </HStack>
+            )}
             <HStack className="items-center" space="sm">
               <Calendar size={18} color="#6b7280" />
               <VStack className="flex-1">

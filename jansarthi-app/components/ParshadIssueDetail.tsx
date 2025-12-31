@@ -4,7 +4,6 @@ import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Pressable } from "@/components/ui/pressable";
 import { Text } from "@/components/ui/text";
-import { Textarea, TextareaInput } from "@/components/ui/textarea";
 import { VStack } from "@/components/ui/vstack";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { apiService, ParshadIssue } from "@/services/api";
@@ -18,12 +17,11 @@ import {
   Clock,
   Construction,
   Droplet,
-  PlayCircle,
   RefreshCw,
   Trash2,
   User,
   X,
-  Zap,
+  Zap
 } from "lucide-react-native";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -141,16 +139,13 @@ export const ParshadIssueDetail: React.FC = () => {
     switch (status) {
       case "assigned":
         return { bg: "bg-warning-100", text: "text-warning-700" };
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return { bg: "bg-info-100", text: "text-info-700" };
       case "pwd_working":
-      case "started_working":
         return { bg: "bg-primary-100", text: "text-primary-700" };
       case "pwd_completed":
         return { bg: "bg-amber-100", text: "text-amber-700" };
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return { bg: "bg-success-100", text: "text-success-700" };
       default:
         return { bg: "bg-gray-100", text: "text-gray-700" };
@@ -161,16 +156,13 @@ export const ParshadIssueDetail: React.FC = () => {
     switch (status) {
       case "assigned":
         return getText(t.status.assigned);
-      case "parshad_acknowledged":
-      case "parshad_check":
+      case "representative_acknowledged":
         return getText(t.status.parshadCheck);
       case "pwd_working":
-      case "started_working":
         return getText(t.status.startedWorking);
       case "pwd_completed":
         return getText(t.parshad.status.pendingReview);
-      case "parshad_reviewed":
-      case "finished_work":
+      case "representative_reviewed":
         return getText(t.status.finishedWork);
       default:
         return status;
@@ -289,7 +281,7 @@ export const ParshadIssueDetail: React.FC = () => {
               
               await apiService.updateIssueWithPhotos({
                 issueId: issue.id,
-                status: "finished_work",
+                new_status: "representative_reviewed",
                 progress_notes: progressNotes || undefined,
                 photos,
               });
@@ -442,6 +434,46 @@ export const ParshadIssueDetail: React.FC = () => {
                 {getText(t.parshad.issueDetail.progressNotes)}
               </Heading>
               <Text className="text-info-800">{issue.progress_notes}</Text>
+            </Box>
+          </View>
+        )}
+
+        {/* PWD Completion Info (shown when work is completed) */}
+        {issue.completion_description && (
+          <View className="px-4 mt-4">
+            <Box className="bg-success-50 rounded-2xl p-4 border border-success-200">
+              <Heading size="sm" className="text-success-700 mb-2">
+                {getText(t.pwd.status.completionDescription)}
+              </Heading>
+              <Text className="text-success-800 mb-3">{issue.completion_description}</Text>
+              
+              {issue.completed_by_name && (
+                <HStack className="items-center mb-2" space="sm">
+                  <User size={16} className="text-success-600" />
+                  <Text className="text-success-700 text-sm">
+                    {getText(t.pwd.status.completedBy)}: {issue.completed_by_name}
+                  </Text>
+                </HStack>
+              )}
+              
+              {issue.completed_at && (
+                <HStack className="items-center" space="sm">
+                  <Clock size={16} className="text-success-600" />
+                  <Text className="text-success-700 text-sm">
+                    {getText(t.pwd.status.completedAt)}: {new Date(issue.completed_at).toLocaleDateString()}
+                  </Text>
+                </HStack>
+              )}
+              
+              {issue.completion_photo_url && (
+                <View className="mt-3 rounded-xl overflow-hidden border border-success-200">
+                  <Image
+                    source={{ uri: issue.completion_photo_url }}
+                    style={{ width: '100%', height: 200 }}
+                    resizeMode="cover"
+                  />
+                </View>
+              )}
             </Box>
           </View>
         )}

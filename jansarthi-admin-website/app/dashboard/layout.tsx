@@ -44,7 +44,7 @@ const menuItems = [
     icon: FileWarning,
   },
   {
-    title: "Parshads",
+    title: "Representatives",
     url: "/dashboard/parshads",
     icon: Users,
   },
@@ -65,11 +65,11 @@ function DashboardSidebar() {
       <SidebarHeader className="border-b border-sidebar-border">
         <div className="flex items-center gap-3 px-4 py-3">
           <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">PWD</span>
+            <span className="text-white font-bold text-sm">Admin</span>
           </div>
           <div className="flex flex-col">
             <span className="font-semibold text-sidebar-foreground">जनसार्थी</span>
-            <span className="text-xs text-sidebar-foreground/60">PWD Admin</span>
+            <span className="text-xs text-sidebar-foreground/60">Admin Portal</span>
           </div>
         </div>
       </SidebarHeader>
@@ -107,10 +107,10 @@ function DashboardSidebar() {
             </Avatar>
             <div className="flex flex-col min-w-0">
               <span className="text-sm font-medium text-sidebar-foreground truncate">
-                {user?.name || "PWD Worker"}
+                {user?.name || "Administrator"}
               </span>
               <span className="text-xs text-sidebar-foreground/60">
-                PWD Worker
+                Administrator
               </span>
             </div>
           </div>
@@ -135,7 +135,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
         <SidebarTrigger />
         <div className="flex-1" />
         <span className="text-sm text-muted-foreground">
-          Public Works Department Portal
+          Administrator Portal
         </span>
       </header>
       <main className="flex-1 p-4 lg:p-6 bg-muted/30">
