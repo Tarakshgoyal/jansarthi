@@ -41,6 +41,7 @@ class IssueResponse(BaseModel):
     longitude: float
     locality_id: Optional[int] = None
     locality_name: Optional[str] = None
+    locality_type: Optional[str] = None
     status: IssueStatus
     user_id: Optional[int]
     assigned_parshad_id: Optional[int] = None

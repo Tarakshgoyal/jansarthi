@@ -53,12 +53,14 @@ def build_issue_response(issue: Issue, storage_service, session: Session) -> Iss
     if issue.completion_photo_url:
         completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
     
-    # Get locality name if exists
+    # Get locality name and type if exists
     locality_name = None
+    locality_type = None
     if issue.locality_id:
         locality = session.get(Locality, issue.locality_id)
         if locality:
             locality_name = locality.name
+            locality_type = locality.type.value if locality.type else None
     
     return IssueResponse(
         id=issue.id,
@@ -68,6 +70,7 @@ def build_issue_response(issue: Issue, storage_service, session: Session) -> Iss
         longitude=issue.longitude,
         locality_id=issue.locality_id,
         locality_name=locality_name,
+        locality_type=locality_type,
         status=issue.status,
         user_id=issue.user_id,
         assigned_parshad_id=issue.assigned_parshad_id,
