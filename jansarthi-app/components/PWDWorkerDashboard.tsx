@@ -51,16 +51,16 @@ const StatCard: React.FC<StatCardProps> = ({
   bgColor,
   onPress,
 }) => (
-  <Pressable onPress={onPress} disabled={!onPress}>
-    <Box className={`${bgColor} rounded-2xl p-4 flex-1`}>
+  <Pressable onPress={onPress} disabled={!onPress} className="flex-1">
+    <Box className={`${bgColor} rounded-2xl p-4`}>
       <HStack className="items-center justify-between">
-        <VStack space="xs">
-          <Text className="text-typography-600 text-sm">{title}</Text>
+        <VStack space="xs" className="flex-1">
+          <Text className="text-typography-600 text-xs" numberOfLines={1}>{title}</Text>
           <Heading size="2xl" className={color}>
             {value}
           </Heading>
         </VStack>
-        <Box className={`${bgColor} rounded-full p-2`}>
+        <Box className={`rounded-full p-2`}>
           <Icon size={24} className={color} />
         </Box>
       </HStack>
@@ -252,19 +252,19 @@ export const PWDWorkerDashboard: React.FC = () => {
   }
 
   return (
-    <View className="flex-1 bg-background-50 gap-4">
-      {/* Header */}
-         <View className="bg-amber-600 px-6 pt-16 pb-8">
-        <HStack className="items-center justify-between mb-4">
-          <VStack className="flex-1">
-            <Heading size="xl" className="text-typography-white">
+    <View className="flex-1 bg-background-50">
+      {/* Header - Fixed height to prevent layout shift on language change */}
+      <View className="bg-amber-600 px-6 pt-16 pb-6" style={{ minHeight: 140 }}>
+        <HStack className="items-center justify-between">
+          <VStack className="flex-1 mr-3">
+            <Heading size="lg" className="text-typography-white" numberOfLines={1}>
               {getText(t.pwd.dashboard.title)}
             </Heading>
-            <Text className="text-amber-100 mt-1">
+            <Text className="text-amber-100 mt-1" numberOfLines={1}>
               {getText(t.pwd.dashboard.welcome)}, {user?.name || "PWD Worker"}
             </Text>
           </VStack>
-          <HStack space="sm" className="items-center ml-4">
+          <HStack space="sm" className="items-center">
             <LanguageSwitcher />
             <Pressable
               onPress={() => router.push('/(app)/profile')}
@@ -277,8 +277,6 @@ export const PWDWorkerDashboard: React.FC = () => {
         </HStack>
       </View>
 
-
-
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingBottom: 20 }}
@@ -287,7 +285,7 @@ export const PWDWorkerDashboard: React.FC = () => {
         }
       >
         {/* Stats Cards */}
-        <View className="px-4 -mt-4">
+        <View className="px-4 pt-4">
           <HStack space="sm" className="mb-3">
             <StatCard
               title={getText(t.pwd.dashboard.pendingWork)}
