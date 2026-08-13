@@ -107,7 +107,6 @@ export default function SignupScreen() {
                     setLocalError('');
                     clearError();
                   }}
-                  autoFocus
                   className="text-typography-900"
                 />
               </Input>
@@ -143,9 +142,6 @@ export default function SignupScreen() {
               )}
             </VStack>
           </FormControl>
-
-          {/* Spacer to push button to bottom */}
-          <View className="flex-1" />
 
           <VStack space="md">
             <Button

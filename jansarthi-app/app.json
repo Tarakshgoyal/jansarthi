@@ -2,7 +2,7 @@
   "expo": {
     "name": "Jansarthi",
     "slug": "jansarthi",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "jansarthi",
@@ -26,6 +26,12 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA"
       ],
+      "blockedPermissions": [
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ],
       "package": "com.rustedshader.jansarthi"
     },
     "web": {
@@ -47,7 +53,7 @@
         "expo-camera",
         {
           "cameraPermission": "Allow $(PRODUCT_NAME) to access your camera to capture photos of issues.",
-          "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone for video recording.",
+          "microphonePermission": false,
           "recordAudioAndroid": false
         }
       ],
