@@ -122,9 +122,16 @@ async def create_issue(
             detail=f"Maximum {settings.max_photos_per_issue} photos allowed",
         )
 
-    # Validate photo types and sizes
-    storage_service = get_storage_service()
+    locality = None
+    if locality_id is not None:
+        locality = session.get(Locality, locality_id)
+        if not locality or not locality.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Active locality not found",
+            )
 
+    validated_photos: list[tuple[UploadFile, bytes]] = []
     for photo in photos:
         if photo.content_type not in settings.allowed_image_types:
             raise HTTPException(
@@ -139,16 +146,14 @@ async def create_issue(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"File {photo.filename} exceeds maximum size of {settings.max_file_size / (1024 * 1024)}MB",
             )
-        # Reset file pointer for later use
-        await photo.seek(0)
+        validated_photos.append((photo, content))
 
-    # Auto-assign to Parshad of this ward if locality_id is provided
+    # Auto-assign to the active representative for the selected locality.
     assigned_parshad_id = None
     assignment_message = None
     initial_status = IssueStatus.REPORTED
     
-    if locality_id is not None:
-        # Find a Parshad assigned to this ward
+    if locality is not None:
         parshad = session.exec(
             select(User).where(
                 User.role == UserRole.REPRESENTATIVE,
@@ -160,9 +165,15 @@ async def create_issue(
         if parshad:
             assigned_parshad_id = parshad.id
             initial_status = IssueStatus.ASSIGNED
-            assignment_message = f"Auto-assigned to Parshad {parshad.name} of ward {locality_id}"
+            title = "Pradhan" if locality.type == LocalityType.VILLAGE else "Parshad"
+            assignment_message = (
+                f"Auto-assigned to {title} {parshad.name} of {locality.name}"
+            )
         else:
-            assignment_message = f"No Parshad assigned to ward {locality_id}. Issue is unassigned."
+            title = "Pradhan" if locality.type == LocalityType.VILLAGE else "Parshad"
+            assignment_message = (
+                f"No {title} is assigned to {locality.name}. Issue is unassigned."
+            )
 
     # Create issue record
     new_issue = Issue(
@@ -177,24 +188,22 @@ async def create_issue(
         status=initial_status,
     )
 
-    session.add(new_issue)
-    session.commit()
-    session.refresh(new_issue)
+    storage_service = get_storage_service()
+    uploaded_objects: list[str] = []
+    try:
+        session.add(new_issue)
+        session.flush()
+        if new_issue.id is None:
+            raise RuntimeError("Database did not assign an issue ID")
 
-    # Upload photos and create photo records
-    for photo in photos:
-        try:
-            # Read file content
-            content = await photo.read()
-
-            # Upload to MinIO
+        for photo, content in validated_photos:
             object_name = storage_service.upload_file(
                 file_data=content,
                 filename=photo.filename or "image.jpg",
                 content_type=photo.content_type or "image/jpeg",
             )
+            uploaded_objects.append(object_name)
 
-            # Create photo record
             issue_photo = IssuePhoto(
                 issue_id=new_issue.id,
                 photo_url=object_name,
@@ -204,37 +213,20 @@ async def create_issue(
             )
             session.add(issue_photo)
 
-        except Exception as e:
-            # Rollback on error
-            session.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to upload photo: {str(e)}",
-            )
+        session.commit()
+        session.refresh(new_issue)
+    except Exception as error:
+        session.rollback()
+        for object_name in uploaded_objects:
+            storage_service.delete_file(object_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to create the report. Please try again.",
+        ) from error
 
-    session.commit()
-    session.refresh(new_issue)
-
-    # Generate presigned URLs for photos
-    for photo in new_issue.photos:
-        photo.photo_url = storage_service.get_file_url(photo.photo_url)
-
-    # Build response with assignment message
-    return IssueResponse(
-        id=new_issue.id,
-        issue_type=new_issue.issue_type,
-        description=new_issue.description,
-        latitude=new_issue.latitude,
-        longitude=new_issue.longitude,
-        locality_id=new_issue.locality_id,
-        status=new_issue.status,
-        user_id=new_issue.user_id,
-        assigned_parshad_id=new_issue.assigned_parshad_id,
-        assignment_message=assignment_message,
-        created_at=new_issue.created_at,
-        updated_at=new_issue.updated_at,
-        photos=[IssuePhotoResponse.model_validate(p) for p in new_issue.photos],
-    )
+    response = build_issue_response(new_issue, storage_service, session)
+    response.assignment_message = assignment_message
+    return response
 
 
 @reports_router.get(
@@ -377,6 +369,7 @@ async def get_issues_for_map(
 )
 async def get_issue(
     issue_id: int,
+    current_user: User = Depends(get_current_active_user),
     session: Session = Depends(get_session),
 ):
     """
@@ -394,6 +387,12 @@ async def get_issue(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Issue with id {issue_id} not found",
+        )
+
+    if issue.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have access to this report",
         )
 
     # Build response with presigned URLs

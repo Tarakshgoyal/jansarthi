@@ -9,15 +9,18 @@ interface QuickActionItemProps {
   icon: LucideIcon;
   label: string;
   onPress: () => void;
+  testID?: string;
 }
 
 export const QuickActionItem = ({
   icon: IconComponent,
   label,
   onPress,
+  testID,
 }: QuickActionItemProps) => {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       className="items-center justify-center py-6 px-4 active:opacity-70 bg-background-0 rounded-2xl border border-outline-100 shadow-soft-1"
       style={{

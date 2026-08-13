@@ -5,7 +5,7 @@ import { Text } from '@/components/ui/text';
 import { VStack } from '@/components/ui/vstack';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { apiService, Issue } from '@/services/api';
-import { Camera, MapView, PointAnnotation } from '@maplibre/maplibre-react-native';
+import { Camera, Map, Marker } from '@maplibre/maplibre-react-native';
 import { Building, Calendar, Construction, Droplet, MapPin, Trash2, Zap } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Image, ScrollView, View } from 'react-native';
@@ -284,31 +284,31 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
       <VStack className="flex-1" space="md">
         <Box>
         <View className="rounded-lg overflow-hidden border border-gray-200" style={{ height: 250 }}>
-            <MapView
+            <Map
               style={{ flex: 1 }}
               mapStyle="https://tiles.openfreemap.org/styles/bright"
-              logoEnabled={false}
-              attributionEnabled={false}
+              logo={false}
+              attribution={false}
               attributionPosition={{ bottom: 8, left: 8 }}
-              compassEnabled={true}
-              compassViewPosition={1}
-              zoomEnabled={true}
-              scrollEnabled={true}
-              pitchEnabled={true}
-              rotateEnabled={true}
+              compass={true}
+              compassPosition={{ top: 8, right: 8 }}
+              touchZoom={true}
+              dragPan={true}
+              touchPitch={true}
+              touchRotate={true}
             >
               <Camera
-                zoomLevel={16}
-                centerCoordinate={[issue.longitude, issue.latitude]}
-                animationMode="flyTo"
-                animationDuration={1000}
+                zoom={16}
+                center={[issue.longitude, issue.latitude]}
+                easing="fly"
+                duration={1000}
               />
 
               {/* Issue location marker */}
-              <PointAnnotation
+              <Marker
                 id="issueLocation"
-                coordinate={[issue.longitude, issue.latitude]}
-                title={getIssueTypeLabel(issue.issue_type)}
+                lngLat={[issue.longitude, issue.latitude]}
+                anchor="bottom"
               >
                 <View
                   style={{
@@ -329,8 +329,8 @@ const ReportDetail: React.FC<ReportDetailProps> = ({ issueId }) => {
                 >
                   <MapPin size={20} color="#FFFFFF" />
                 </View>
-              </PointAnnotation>
-            </MapView>
+              </Marker>
+            </Map>
           </View>
           </Box>
         {/* Status Progress */}

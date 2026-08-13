@@ -189,6 +189,7 @@ const Profile: React.FC<ProfileProps> = () => {
         {/* Action Buttons */}
         <VStack space="md" className="mt-2">
           <Button
+            testID="profile-refresh"
             size="lg"
             variant="outline"
             onPress={handleRefresh}
@@ -204,6 +205,7 @@ const Profile: React.FC<ProfileProps> = () => {
           </Button>
 
           <Button
+            testID="logout-button"
             size="lg"
             onPress={handleLogout}
             className="bg-red-600"

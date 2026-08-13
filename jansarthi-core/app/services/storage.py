@@ -2,6 +2,7 @@ import io
 import uuid
 from datetime import timedelta
 from typing import BinaryIO
+from urllib.parse import urlparse
 
 from minio import Minio
 from minio.error import S3Error
@@ -15,13 +16,21 @@ class StorageService:
     """Service for handling file uploads to MinIO/S3"""
 
     def __init__(self):
+        endpoint = settings.s3_endpoint
+        secure = settings.s3_secure
+        if "://" in endpoint:
+            parsed_endpoint = urlparse(endpoint)
+            endpoint = parsed_endpoint.netloc
+            secure = parsed_endpoint.scheme == "https"
+
         self.client = Minio(
-            settings.minio_endpoint,
-            access_key=settings.minio_user,
-            secret_key=settings.minio_password,
-            secure=settings.minio_secure,
+            endpoint,
+            access_key=settings.s3_access_key,
+            secret_key=settings.s3_secret_key,
+            secure=secure,
+            region=settings.s3_region,
         )
-        self.bucket_name = settings.minio_bucket
+        self.bucket_name = settings.s3_bucket
         self._ensure_bucket_exists()
 
     def _ensure_bucket_exists(self):
@@ -86,7 +95,7 @@ class StorageService:
             raise
 
     def get_file_url(
-        self, object_name: str, expires: timedelta = timedelta(days=7)
+        self, object_name: str, expires: timedelta | None = None
     ) -> str:
         """
         Get a presigned URL for accessing a file
@@ -99,6 +108,8 @@ class StorageService:
             str: Presigned URL
         """
         try:
+            if expires is None:
+                expires = timedelta(seconds=settings.presigned_url_expiry_seconds)
             url = self.client.presigned_get_object(
                 bucket_name=self.bucket_name,
                 object_name=object_name,
@@ -108,6 +119,11 @@ class StorageService:
         except S3Error as e:
             print(f"Error generating presigned URL: {e}")
             raise
+
+    def check_connection(self) -> None:
+        """Raise when the configured bucket cannot be reached."""
+        if not self.client.bucket_exists(self.bucket_name):
+            raise RuntimeError(f"Storage bucket {self.bucket_name!r} does not exist")
 
     def delete_file(self, object_name: str) -> bool:
         """
@@ -139,10 +155,11 @@ class StorageService:
         Returns:
             str: Public URL
         """
-        protocol = "https" if settings.minio_secure else "http"
-        return (
-            f"{protocol}://{settings.minio_endpoint}/{self.bucket_name}/{object_name}"
-        )
+        endpoint = settings.s3_endpoint
+        if "://" in endpoint:
+            return f"{endpoint.rstrip('/')}/{self.bucket_name}/{object_name}"
+        protocol = "https" if settings.s3_secure else "http"
+        return f"{protocol}://{endpoint}/{self.bucket_name}/{object_name}"
 
 
 # Singleton instance

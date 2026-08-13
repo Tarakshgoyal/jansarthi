@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Keyboard, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function LoginScreen() {
   const { login, isLoading, error, clearError } = useAuth();
@@ -61,6 +61,7 @@ export default function LoginScreen() {
   };
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View className="flex-1 bg-brand-500">
       {/* Header Section with Brand Color */}
       <View className="pt-16 pb-8 px-6">
@@ -87,6 +88,7 @@ export default function LoginScreen() {
             <VStack space="sm">
               <View className="flex-row">
                 <Input 
+                  testID="login-phone"
                   size="lg"
                   className="flex-1 bg-background-50  h-12"
                 >
@@ -121,6 +123,7 @@ export default function LoginScreen() {
 
           <VStack space="md">
             <Button
+              testID="login-submit"
               size="lg"
               onPress={handleLogin}
               isDisabled={isLoading}
@@ -136,6 +139,7 @@ export default function LoginScreen() {
                 {getText(t.auth.login.dontHaveAccount)}{' '}
               </Text>
               <Button
+                testID="go-signup"
                 variant="link"
                 size="sm"
                   onPress={() => router.push('/(auth)/signup')}
@@ -149,5 +153,6 @@ export default function LoginScreen() {
         </VStack>
       </View>
     </View>
+    </TouchableWithoutFeedback>
   );
 }

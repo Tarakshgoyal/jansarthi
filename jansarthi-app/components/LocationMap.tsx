@@ -1,7 +1,7 @@
 import {
   Camera,
-  MapView,
-  PointAnnotation,
+  Map,
+  Marker,
   UserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
@@ -183,32 +183,31 @@ const LocationMap: React.FC<LocationMapProps> = ({
 
     return (
       <View style={{ height }}>
-        <MapView
+        <Map
           style={{ flex: 1 }}
           mapStyle="https://tiles.openfreemap.org/styles/bright"
-          logoEnabled={false}
-          attributionEnabled={false}
+          logo={false}
+          attribution={false}
           attributionPosition={{ bottom: 8, left: 8 }}
-          compassEnabled={true}
-          compassViewPosition={1}
-          zoomEnabled={true}
-          scrollEnabled={false}
-          pitchEnabled={true}
-          rotateEnabled={true}
+          compass={true}
+          compassPosition={{ top: 8, right: 8 }}
+          touchZoom={true}
+          dragPan={false}
+          touchPitch={true}
+          touchRotate={true}
         >
           <Camera
             ref={cameraRef}
-            zoomLevel={16}
-            centerCoordinate={[userLocation.longitude, userLocation.latitude]}
-            animationMode="flyTo"
-            animationDuration={1000}
+            zoom={16}
+            center={[userLocation.longitude, userLocation.latitude]}
+            easing="fly"
+            duration={1000}
           />
 
           {/* User location marker */}
-          <PointAnnotation
+          <Marker
             id="userLocation"
-            coordinate={[userLocation.longitude, userLocation.latitude]}
-            title={t.yourLocation[language]}
+            lngLat={[userLocation.longitude, userLocation.latitude]}
           >
             <View
               style={{
@@ -225,18 +224,15 @@ const LocationMap: React.FC<LocationMapProps> = ({
                 elevation: 5,
               }}
             />
-          </PointAnnotation>
+          </Marker>
 
           {/* Show user location with native component */}
           <UserLocation
-            visible={true}
             animated={true}
-            renderMode="native"
-            androidRenderMode="compass"
-            showsUserHeadingIndicator={true}
+            heading={true}
             minDisplacement={10}
           />
-        </MapView>
+        </Map>
 
         {/* Address Display */}
         <Box className="bg-background-0 border-t border-outline-100 px-4 py-3">

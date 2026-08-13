@@ -61,8 +61,8 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
       setWardError(null);
 
       // Validate form
-      if (!description.trim()) {
-        setError(language === "hi" ? "कृपया विवरण प्रदान करें" : "Please provide a description");
+      if (description.trim().length < 10) {
+        setError(language === "hi" ? "कृपया कम से कम 10 अक्षरों का विवरण दें" : "Please provide a description of at least 10 characters");
         return;
       }
 
@@ -124,7 +124,7 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
   };
 
   return (
-    <ScrollView className="flex-1 bg-background-50">
+    <ScrollView className="flex-1 bg-background-50" keyboardDismissMode="on-drag">
       <VStack className="flex-1 p-4" space="2xl">
         {/* Map Component */}
         <VStack space="sm">
@@ -147,7 +147,7 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
                 {getText(t.form.description)}
               </FormControlLabelText>
             </FormControlLabel>
-            <Textarea size="md" className="min-h-32 bg-white">
+            <Textarea testID="water-description" size="md" className="min-h-32 bg-white">
               <TextareaInput
                 placeholder={getText(t.form.descriptionPlaceholder)}
                 value={description}
@@ -169,6 +169,7 @@ const WaterIssue: React.FC<WaterIssueProps> = () => {
 
         {/* Submit Button */}
         <Button
+          testID="water-submit"
           action="primary"
           size="lg"
           onPress={handleSubmit}

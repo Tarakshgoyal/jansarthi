@@ -43,8 +43,6 @@ async def get_parshad_user(
 
 def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
     """Helper to build AdminIssueResponse with related data"""
-    from app.services.storage import get_storage_service
-    
     reporter = None
     if issue.user_id:
         user = session.get(User, issue.user_id)
@@ -69,10 +67,16 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
                 locality_name=locality_name,
             )
     
+    storage_service = None
+    photo_urls = []
+    if issue.photos:
+        storage_service = get_storage_service()
+        photo_urls = [storage_service.get_file_url(photo.photo_url) for photo in issue.photos]
+
     # Get completion photo URL if exists
     completion_photo_url = None
     if issue.completion_photo_url:
-        storage_service = get_storage_service()
+        storage_service = storage_service or get_storage_service()
         completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
     
     # Get completed by name
@@ -103,6 +107,7 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
         created_at=issue.created_at,
         updated_at=issue.updated_at,
         photo_count=len(issue.photos),
+        photos=photo_urls,
     )
 
 

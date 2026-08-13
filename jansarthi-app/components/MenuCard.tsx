@@ -13,6 +13,7 @@ interface MenuCardProps {
   icon: React.ComponentType<any>;
   onPress: () => void;
   variant?: "primary" | "secondary" | "cta";
+  testID?: string;
 }
 
 export const MenuCard: React.FC<MenuCardProps> = ({
@@ -21,6 +22,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({
   icon: IconComponent,
   onPress,
   variant = "secondary",
+  testID,
 }) => {
   const isCTA = variant === "cta";
   const iconColor = isCTA
@@ -40,6 +42,7 @@ export const MenuCard: React.FC<MenuCardProps> = ({
 
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       className={`w-full ${bgColor} rounded-2xl p-6 shadow-soft-2 active:opacity-80 border ${borderColor}`}
       style={{

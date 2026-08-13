@@ -203,16 +203,16 @@ export const PWDIssueDetail: React.FC = () => {
     // Validate required fields
     if (!workNotes || workNotes.trim().length < 10) {
       Alert.alert(
-        getText(t.validation?.error || "Error"),
-        getText(t.pwd.status.descriptionRequired || "Please provide a description of the completed work (at least 10 characters)")
+        getText(t.actions.error),
+        getText(t.pwd.status.descriptionRequired)
       );
       return;
     }
 
     if (selectedPhotos.length === 0) {
       Alert.alert(
-        getText(t.validation?.error || "Error"),
-        getText(t.pwd.status.photoRequired || "Please take a photo of the completed work")
+        getText(t.actions.error),
+        getText(t.pwd.status.photoRequired)
       );
       return;
     }
@@ -272,7 +272,7 @@ export const PWDIssueDetail: React.FC = () => {
       <View className="flex-1 bg-background-50">
         <View className="bg-amber-600 px-6 pt-16 pb-6">
           <HStack className="items-center" space="md">
-            <Pressable onPress={() => router.back()} className="p-2">
+            <Pressable testID="pwd-back" onPress={() => router.back()} className="p-2">
               <ArrowLeft size={24} color="#fff" />
             </Pressable>
             <Heading size="lg" className="text-typography-white">
@@ -306,7 +306,7 @@ export const PWDIssueDetail: React.FC = () => {
       {/* Header */}
       <View className="bg-amber-600 px-6 pt-16 pb-6">
         <HStack className="items-center" space="md">
-          <Pressable onPress={() => router.back()} className="p-2">
+          <Pressable testID="pwd-back" onPress={() => router.back()} className="p-2">
             <ArrowLeft size={24} color="#fff" />
           </Pressable>
           <Heading size="lg" className="text-typography-white flex-1">
@@ -315,7 +315,11 @@ export const PWDIssueDetail: React.FC = () => {
         </HStack>
       </View>
 
-      <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingBottom: 100 }}
+        keyboardDismissMode="on-drag"
+      >
         {/* Issue Type Card */}
         <View className="px-4 -mt-4">
           <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
@@ -348,7 +352,7 @@ export const PWDIssueDetail: React.FC = () => {
         </View>
 
         {/* Representative Info */}
-        {issue.assigned_representative && (
+        {issue.assigned_parshad && (
           <View className="px-4 mt-4">
             <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
               <HStack className="items-center" space="md">
@@ -360,11 +364,11 @@ export const PWDIssueDetail: React.FC = () => {
                     {getText(t.pwd.issueDetail.parshad)}
                   </Text>
                   <Text className="text-typography-900 font-medium">
-                    {issue.assigned_representative.name}
+                    {issue.assigned_parshad.name}
                   </Text>
-                  {issue.assigned_representative.locality_name && (
+                  {issue.assigned_parshad.locality_name && (
                     <Text className="text-typography-400 text-xs">
-                      {issue.assigned_representative.locality_name}
+                      {issue.assigned_parshad.locality_name}
                     </Text>
                   )}
                 </VStack>
@@ -485,7 +489,7 @@ export const PWDIssueDetail: React.FC = () => {
                 <Text className="text-typography-700 font-medium">
                   {getText(t.pwd.issueDetail.workNotes)}
                 </Text>
-                <Textarea>
+                <Textarea testID="pwd-completion-description">
                   <TextareaInput
                     placeholder={getText(t.pwd.issueDetail.workNotesPlaceholder)}
                     value={workNotes}
@@ -529,6 +533,7 @@ export const PWDIssueDetail: React.FC = () => {
 
                 {selectedPhotos.length < 5 && (
                   <Pressable
+                    testID="pwd-completion-camera"
                     onPress={openCamera}
                     className="bg-amber-50 rounded-xl p-4 items-center"
                   >
@@ -540,6 +545,7 @@ export const PWDIssueDetail: React.FC = () => {
 
               {/* Submit Button */}
               <Button
+                testID="pwd-completion-submit"
                 onPress={handleCompleteWork}
                 isDisabled={isActionLoading}
                 className="bg-success-600"
@@ -574,6 +580,7 @@ export const PWDIssueDetail: React.FC = () => {
         <View className="absolute bottom-0 left-0 right-0 bg-background-0 border-t border-outline-100 px-4 py-4 pb-8">
           {canStartWork && (
             <Button
+              testID="pwd-start-work"
               onPress={handleStartWork}
               isDisabled={isActionLoading}
               className="bg-amber-600"
@@ -594,6 +601,7 @@ export const PWDIssueDetail: React.FC = () => {
 
           {canCompleteWork && (
             <Button
+              testID="pwd-show-completion"
               onPress={() => setShowCompletionForm(true)}
               isDisabled={isActionLoading}
               className="bg-success-600"

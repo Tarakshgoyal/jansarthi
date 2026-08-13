@@ -1,0 +1,51 @@
+appId: com.rustedshader.jansarthi
+name: Citizen verifies the resolved report
+---
+- launchApp
+- tapOn:
+    id: login-phone
+- inputText: 9000000001
+- tapOn: Welcome Back
+- tapOn:
+    id: login-submit
+- tapOn:
+    id: otp-digit-0
+- inputText: 9
+- tapOn:
+    id: otp-digit-1
+- inputText: 9
+- tapOn:
+    id: otp-digit-2
+- inputText: 9
+- tapOn:
+    id: otp-digit-3
+- inputText: 9
+- tapOn:
+    id: otp-digit-4
+- inputText: 9
+- tapOn:
+    id: otp-digit-5
+- inputText: 9
+- tapOn:
+    id: otp-submit
+- extendedWaitUntil:
+    visible:
+      id: view-reports
+    timeout: 30000
+- tapOn:
+    id: view-reports
+- extendedWaitUntil:
+    visible:
+      id: citizen-report-1
+    timeout: 30000
+- tapOn:
+    id: citizen-report-1
+- scrollUntilVisible:
+    element:
+      text: ".*Replaced the leaking pipe and verified water pressure.*"
+    direction: DOWN
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      text: ".*Completion Photo.*"
+    direction: DOWN

@@ -138,6 +138,7 @@ export default function VerifyOTPScreen() {
               <HStack space="sm" className="justify-center">
                 {otpDigits.map((digit, index) => (
                   <TextInput
+                    testID={`otp-digit-${index}`}
                     key={index}
                     ref={(ref) => { inputRefs.current[index] = ref; }}
                     value={digit}
@@ -162,6 +163,7 @@ export default function VerifyOTPScreen() {
           </FormControl>
 
           <Button
+            testID="otp-submit"
             size="lg"
             onPress={handleVerifyOTP}
             isDisabled={isLoading || otpCode.length !== 6}

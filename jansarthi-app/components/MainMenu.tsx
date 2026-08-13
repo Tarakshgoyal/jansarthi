@@ -118,6 +118,7 @@ export const MainMenu = () => {
         {/* Create New Report Card - Primary Action */}
         <VStack space="lg" className="mt-2 mb-6">
           <MenuCard
+            testID="create-report"
             title={getText(t.menu.createReport)}
             description={getText(t.menu.createReportDesc)}
             icon={Plus}
@@ -125,6 +126,7 @@ export const MainMenu = () => {
             variant="cta"
           />
           <MenuCard
+            testID="view-reports"
             title={getText(t.quickActions.viewReports)}
             description={getText(t.menu.viewReportsDesc)}
             icon={Eye}
@@ -132,6 +134,7 @@ export const MainMenu = () => {
             variant="secondary"
           />
           <MenuCard
+            testID="view-map"
             title={getText(t.quickActions.viewMap)}
             description={getText(t.menu.viewMapDesc)}
             icon={Map}
@@ -152,21 +155,25 @@ export const MainMenu = () => {
             contentContainerStyle={{ gap: 12 }}
           >
             <QuickActionItem
+              testID="quick-water"
               icon={Droplet}
               label={getText(t.quickActions.jalSamasya)}
               onPress={handleJalSamasya}
             />
             <QuickActionItem
+              testID="quick-electricity"
               icon={Zap}
               label={getText(t.quickActions.bijliSamasya)}
               onPress={handleBijliSamasya}
             />
             <QuickActionItem
+              testID="quick-road"
               icon={Construction}
               label={getText(t.quickActions.sadakSamasya)}
               onPress={handleSadakSamasya}
             />
             <QuickActionItem
+              testID="quick-garbage"
               icon={Trash2}
               label={getText(t.quickActions.kachraSamasya)}
               onPress={handleKachraSamasya}
@@ -208,6 +215,7 @@ export const MainMenu = () => {
                 }}
               >
                 <IssueTypeCard
+                  testID="issue-type-water"
                   icon={Droplet}
                   label={getText(t.issueTypes.jalSamasya)}
                   onPress={handleJalSamasya}
@@ -219,6 +227,7 @@ export const MainMenu = () => {
                 }}
               >
                 <IssueTypeCard
+                  testID="issue-type-electricity"
                   icon={Zap}
                   label={getText(t.issueTypes.bijliSamasya)}
                   onPress={handleBijliSamasya}
@@ -230,6 +239,7 @@ export const MainMenu = () => {
                 }}
               >
                 <IssueTypeCard
+                  testID="issue-type-road"
                   icon={Construction}
                   label={getText(t.issueTypes.sadakSamasya)}
                   onPress={handleSadakSamasya}
@@ -241,6 +251,7 @@ export const MainMenu = () => {
                 }}
               >
                 <IssueTypeCard
+                  testID="issue-type-garbage"
                   icon={Trash2}
                   label={getText(t.issueTypes.kachraSamasya)}
                   onPress={handleKachraSamasya}

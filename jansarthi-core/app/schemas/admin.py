@@ -130,6 +130,7 @@ class AdminIssueResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     photo_count: int = 0
+    photos: list[str] = Field(default_factory=list)
 
     class Config:
         from_attributes = True

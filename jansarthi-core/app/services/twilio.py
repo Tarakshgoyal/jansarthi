@@ -1,5 +1,6 @@
-"""OTP service using 2Factor.in API"""
+"""OTP service using 2Factor.in API."""
 
+import logging
 import re
 from typing import Optional, Tuple
 
@@ -8,6 +9,12 @@ import requests
 from app.settings.config import get_settings
 
 settings = get_settings()
+logger = logging.getLogger(__name__)
+
+
+def _masked_phone(phone: str) -> str:
+    normalized = normalize_phone_number(phone)
+    return f"***{normalized[-4:]}"
 
 
 def normalize_phone_number(phone: str) -> str:
@@ -71,8 +78,7 @@ class OTPService:
         """
         # Development mode - skip actual OTP sending
         if settings.dev_mode:
-            normalized_number = normalize_phone_number(to_number)
-            print(f"[DEV MODE] Skipping OTP send to {normalized_number}. Use OTP: {settings.dev_default_otp}")
+            logger.info("DEV_MODE OTP requested for %s", _masked_phone(to_number))
             return True, "dev_mode"
         
         try:
@@ -82,19 +88,28 @@ class OTPService:
             # Build the API URL
             url = f"{self.BASE_URL}/{self.api_key}/SMS/{normalized_number}/AUTOGEN/OTP1"
             
-            response = requests.get(url)
+            response = requests.get(url, timeout=settings.otp_http_timeout_seconds)
+            response.raise_for_status()
             data = response.json()
             
             if data.get("Status") == "Success":
                 session_id = data.get("Details")
-                print(f"OTP sent successfully to {normalized_number}. Session ID: {session_id}")
+                logger.info("OTP sent successfully to %s", _masked_phone(normalized_number))
                 return True, session_id
             else:
-                print(f"Failed to send OTP to {normalized_number}. Response: {data}")
+                logger.warning(
+                    "OTP provider rejected request for %s: %s",
+                    _masked_phone(normalized_number),
+                    data.get("Details", "unknown error"),
+                )
                 return False, None
                 
-        except Exception as e:
-            print(f"Error sending OTP to {to_number}: {str(e)}")
+        except Exception as error:
+            logger.error(
+                "OTP delivery failed for %s (%s)",
+                _masked_phone(to_number),
+                type(error).__name__,
+            )
             return False, None
 
     def verify_otp(self, session_id: str, otp_code: str) -> bool:
@@ -110,29 +125,24 @@ class OTPService:
         """
         # Development mode - verify against default OTP
         if settings.dev_mode or session_id == "dev_mode":
-            is_valid = otp_code == settings.dev_default_otp
-            if is_valid:
-                print(f"[DEV MODE] OTP verified successfully")
-            else:
-                print(f"[DEV MODE] OTP verification failed. Expected: {settings.dev_default_otp}, Got: {otp_code}")
-            return is_valid
+            return otp_code == settings.dev_default_otp
         
         try:
             # Build the API URL
             url = f"{self.BASE_URL}/{self.api_key}/SMS/VERIFY/{session_id}/{otp_code}"
             
-            response = requests.get(url)
+            response = requests.get(url, timeout=settings.otp_http_timeout_seconds)
+            response.raise_for_status()
             data = response.json()
             
             if data.get("Status") == "Success" and data.get("Details") == "OTP Matched":
-                print(f"OTP verified successfully for session: {session_id}")
                 return True
             else:
-                print(f"OTP verification failed. Response: {data}")
+                logger.warning("OTP provider rejected a verification attempt")
                 return False
                 
-        except Exception as e:
-            print(f"Error verifying OTP: {str(e)}")
+        except Exception as error:
+            logger.error("OTP verification request failed (%s)", type(error).__name__)
             return False
 
 

@@ -36,6 +36,7 @@ const BackHeader: React.FC<BackHeaderProps> = ({ title }) => {
       <HStack className="items-center px-4 py-3" space="md">
         {/* Back Button */}
         <TouchableOpacity
+          testID="back-button"
           onPress={handleGoBack}
           activeOpacity={0.7}
           accessibilityLabel="Go back"

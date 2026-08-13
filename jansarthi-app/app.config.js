@@ -80,7 +80,9 @@ module.exports = {
         projectId: "d1bcfd05-3aa1-4686-9f29-412179946708",
       },
       // Environment variables accessible via expo-constants
-      apiBaseUrl: process.env.EXPO_API_BASE_URL || "https://api.surakshit.world",
+      apiBaseUrl:
+        process.env.EXPO_PUBLIC_API_URL ||
+        "https://api.jansarthi.shubhang.dev",
     },
   },
 };

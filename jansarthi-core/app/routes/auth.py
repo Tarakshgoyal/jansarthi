@@ -2,6 +2,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session, select
+from starlette.concurrency import run_in_threadpool
 
 from app.database import get_session
 from app.models.issue import OTP, Locality, User
@@ -20,6 +21,51 @@ from app.settings.config import get_settings
 
 settings = get_settings()
 auth_router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+
+def enforce_otp_cooldown(mobile_number: str, session: Session) -> None:
+    latest_otp = session.exec(
+        select(OTP)
+        .where(OTP.mobile_number == mobile_number)
+        .order_by(OTP.created_at.desc())
+    ).first()
+    if not latest_otp or not latest_otp.created_at:
+        return
+
+    created_at = latest_otp.created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    elapsed = (datetime.now(timezone.utc) - created_at).total_seconds()
+    remaining = settings.otp_request_cooldown_seconds - int(elapsed)
+    if remaining > 0:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining} seconds before requesting another OTP.",
+            headers={"Retry-After": str(remaining)},
+        )
+
+
+async def create_otp_record(mobile_number: str, session: Session) -> OTP:
+    enforce_otp_cooldown(mobile_number, session)
+    otp_service = get_otp_service()
+    sms_sent, session_id = await run_in_threadpool(
+        otp_service.send_otp, mobile_number
+    )
+    if not sms_sent or not session_id:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="Failed to send OTP. Please try again.",
+        )
+
+    otp_record = OTP(
+        mobile_number=mobile_number,
+        session_id=session_id,
+        expires_at=datetime.now(timezone.utc)
+        + timedelta(minutes=settings.otp_expiry_minutes),
+        is_used=False,
+    )
+    session.add(otp_record)
+    return otp_record
 
 
 def build_user_response(user: User, session: Session) -> UserResponse:
@@ -84,31 +130,20 @@ async def signup(
         is_active=True
     )
     
-    session.add(new_user)
-    session.commit()
-    session.refresh(new_user)
-    
-    # Send OTP via 2Factor API (generates and sends automatically)
-    otp_service = get_otp_service()
-    sms_sent, session_id = otp_service.send_otp(normalized_number)
-    
-    if not sms_sent or not session_id:
+    try:
+        session.add(new_user)
+        session.flush()
+        await create_otp_record(normalized_number, session)
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception:
+        session.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
+            detail="Unable to create account. Please try again.",
         )
-    
-    # Save OTP session to database
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
-    otp_record = OTP(
-        mobile_number=normalized_number,
-        session_id=session_id,
-        expires_at=expires_at,
-        is_used=False
-    )
-    
-    session.add(otp_record)
-    session.commit()
     
     return OTPResponse(
         message="OTP sent successfully to your mobile number",
@@ -153,27 +188,12 @@ async def login(
             detail="Your account has been deactivated. Please contact support."
         )
     
-    # Send OTP via 2Factor API (generates and sends automatically)
-    otp_service = get_otp_service()
-    sms_sent, session_id = otp_service.send_otp(normalized_number)
-    
-    if not sms_sent or not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
-        )
-    
-    # Save OTP session to database
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
-    otp_record = OTP(
-        mobile_number=normalized_number,
-        session_id=session_id,
-        expires_at=expires_at,
-        is_used=False
-    )
-    
-    session.add(otp_record)
-    session.commit()
+    try:
+        await create_otp_record(normalized_number, session)
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
     
     return OTPResponse(
         message="OTP sent successfully to your mobile number",
@@ -373,27 +393,12 @@ async def resend_otp(
             detail="User not found"
         )
     
-    # Send OTP via 2Factor API (generates and sends automatically)
-    otp_service = get_otp_service()
-    sms_sent, session_id = otp_service.send_otp(normalized_number)
-    
-    if not sms_sent or not session_id:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send OTP. Please try again."
-        )
-    
-    # Save OTP session to database
-    expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.otp_expiry_minutes)
-    otp_record = OTP(
-        mobile_number=normalized_number,
-        session_id=session_id,
-        expires_at=expires_at,
-        is_used=False
-    )
-    
-    session.add(otp_record)
-    session.commit()
+    try:
+        await create_otp_record(normalized_number, session)
+        session.commit()
+    except HTTPException:
+        session.rollback()
+        raise
     
     return OTPResponse(
         message="New OTP sent successfully",

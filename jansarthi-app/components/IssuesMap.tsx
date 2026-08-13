@@ -8,8 +8,8 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { apiService, Issue } from '@/services/api';
 import {
     Camera,
-    MapView,
-    PointAnnotation,
+    Map,
+    Marker,
     UserLocation,
 } from "@maplibre/maplibre-react-native";
 import * as Location from "expo-location";
@@ -297,47 +297,44 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
 
   return (
     <View className="flex-1">
-      <MapView
+      <Map
         style={{ flex: 1 }}
         mapStyle="https://tiles.openfreemap.org/styles/bright"
-        logoEnabled={false}
-        attributionEnabled={false}
+        logo={false}
+        attribution={false}
         attributionPosition={{ bottom: 8, left: 8 }}
-        compassEnabled={true}
-        compassViewPosition={1}
-        zoomEnabled={true}
-        scrollEnabled={true}
-        pitchEnabled={false}
-        rotateEnabled={true}
+        compass={true}
+        compassPosition={{ top: 8, right: 8 }}
+        touchZoom={true}
+        dragPan={true}
+        touchPitch={false}
+        touchRotate={true}
       >
         <Camera
           ref={cameraRef}
-          zoomLevel={zoomLevel}
-          centerCoordinate={centerCoordinate}
-          animationMode="flyTo"
-          animationDuration={1000}
+          zoom={zoomLevel}
+          center={centerCoordinate}
+          easing="fly"
+          duration={1000}
         />
 
         {/* User location if available */}
         {userLocation && (
           <UserLocation
-            visible={true}
             animated={true}
-            renderMode="native"
-            androidRenderMode="compass"
-            showsUserHeadingIndicator={true}
+            heading={true}
             minDisplacement={10}
           />
         )}
 
         {/* Issue markers */}
         {filteredIssues.map((issue) => (
-          <PointAnnotation
+          <Marker
             key={`issue-${issue.id}`}
             id={`issue-${issue.id}`}
-            coordinate={[issue.longitude, issue.latitude]}
-            title={getIssueTypeLabel(issue.issue_type)}
-            onSelected={() => handleMarkerPress(issue)}
+            lngLat={[issue.longitude, issue.latitude]}
+            anchor="bottom"
+            onPress={() => handleMarkerPress(issue)}
           >
             <TouchableOpacity onPress={() => handleMarkerPress(issue)}>
               <View
@@ -360,9 +357,9 @@ const IssuesMap: React.FC<IssuesMapProps> = () => {
                 <Text style={{ fontSize: 20 }}>{getIssueIcon(issue.issue_type)}</Text>
               </View>
             </TouchableOpacity>
-          </PointAnnotation>
+          </Marker>
         ))}
-      </MapView>
+      </Map>
 
       {/* Refresh Button */}
       <View className="absolute top-4 right-4">

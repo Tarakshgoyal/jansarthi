@@ -14,6 +14,7 @@ import {
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
+  isInitializing: boolean;
   isAuthenticated: boolean;
   error: string | null;
   signup: (data: SignupRequest) => Promise<OTPResponse>;
@@ -41,7 +42,8 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const isAuthenticated = !!user;
@@ -53,7 +55,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const initializeAuth = async () => {
     try {
-      setIsLoading(true);
+      setIsInitializing(true);
       const token = await getAccessToken();
       
       if (token) {
@@ -85,7 +87,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       await clearTokens();
       setUser(null);
     } finally {
-      setIsLoading(false);
+      setIsInitializing(false);
     }
   };
 
@@ -176,6 +178,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       value={{
         user,
         isLoading,
+        isInitializing,
         isAuthenticated,
         error,
         signup,

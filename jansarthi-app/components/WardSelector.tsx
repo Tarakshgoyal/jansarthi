@@ -138,6 +138,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
 
   const renderWardItem = ({ item }: { item: Ward }) => (
     <Pressable
+      testID={`locality-option-${item.id}`}
       onPress={() => handleSelectWard(item)}
       className="bg-background-0 border border-outline-100 rounded-xl p-4 mb-3"
     >
@@ -204,6 +205,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
 
       {/* Selector Button */}
       <Pressable
+        testID="locality-selector"
         onPress={() => setIsModalVisible(true)}
         className={`bg-white border ${
           error ? "border-error-500" : "border-outline-200"
@@ -295,6 +297,7 @@ const WardSelector: React.FC<WardSelectorProps> = ({
             <View className="mt-4 bg-white rounded-xl flex-row items-center px-4 py-3">
               <Search size={20} className="text-typography-400" />
               <TextInput
+                testID="locality-search"
                 placeholder={
                   language === "hi"
                     ? "स्थान का नाम या नंबर खोजें..."

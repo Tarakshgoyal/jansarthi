@@ -140,7 +140,7 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
   const statusColorClass = getStatusColor(issue.status);
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable testID={`pwd-issue-${issue.id}`} onPress={onPress}>
       <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100 mb-3">
         <HStack className="items-start justify-between">
           <HStack className="items-center flex-1" space="md">
@@ -157,9 +157,9 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
               >
                 {issue.description}
               </Text>
-              {issue.assigned_representative && (
+              {issue.assigned_parshad && (
                 <Text className="text-typography-400 text-xs">
-                  {getText(t.pwd.issueDetail.parshad)}: {issue.assigned_representative.name}
+                  {getText(t.pwd.issueDetail.parshad)}: {issue.assigned_parshad.name}
                 </Text>
               )}
             </VStack>
@@ -267,6 +267,7 @@ export const PWDWorkerDashboard: React.FC = () => {
           <HStack space="sm" className="items-center">
             <LanguageSwitcher />
             <Pressable
+              testID="profile-button"
               onPress={() => router.push('/(app)/profile')}
               className="border border-white/20 rounded-full p-2 bg-amber-500 active:opacity-70"
               style={{ minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' }}
@@ -328,6 +329,7 @@ export const PWDWorkerDashboard: React.FC = () => {
           <HStack space="sm" className="mb-4">
             {(["pending", "in_progress", "completed"] as const).map((tab) => (
               <Pressable
+                testID={`pwd-tab-${tab}`}
                 key={tab}
                 onPress={() => setActiveTab(tab)}
                 className={`flex-1 py-3 rounded-xl ${

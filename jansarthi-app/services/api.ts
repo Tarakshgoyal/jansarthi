@@ -1,7 +1,10 @@
+import Constants from 'expo-constants';
 import * as SecureStore from 'expo-secure-store';
 
-const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:8000';
-// const API_BASE_URL = "https://api.surakshit.world";
+const API_BASE_URL =
+  Constants.expoConfig?.extra?.apiBaseUrl ||
+  process.env.EXPO_PUBLIC_API_URL ||
+  'https://api.jansarthi.shubhang.dev';
 
 // Token management
 export const TOKEN_KEYS = {
@@ -134,7 +137,7 @@ export interface Issue {
   locality_type?: LocalityType;
   status: string;
   user_id: number;
-  assigned_representative_id?: number;
+  assigned_parshad_id?: number;
   assignment_message?: string;
   // Completion data (when PWD completes work)
   completion_description?: string;
@@ -148,7 +151,6 @@ export interface Issue {
 
 export interface IssuePhoto {
   id: number;
-  issue_id: number;
   photo_url: string;
   filename: string;
   file_size: number;
@@ -190,8 +192,8 @@ export interface RepresentativeIssue {
   status: string;
   user_id?: number;
   reporter?: UserInfo;
-  assigned_representative_id?: number;
-  assigned_representative?: RepresentativeInfoDetail;
+  assigned_parshad_id?: number;
+  assigned_parshad?: RepresentativeInfoDetail;
   assignment_notes?: string;
   progress_notes?: string;
   // Completion data (when PWD completes work)
@@ -246,24 +248,39 @@ export interface PWDWorkerDashboardStats {
 class ApiService {
   private baseURL = API_BASE_URL;
 
-  private async getAuthHeaders(): Promise<HeadersInit> {
-    const token = await getAccessToken();
-    return {
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-  }
+  private async request<T>(
+    path: string,
+    init: RequestInit = {},
+    authenticated = false,
+    allowRetry = true,
+  ): Promise<T> {
+    const headers = new Headers(init.headers);
 
-  private async handleResponse(response: Response) {
-    if (response.status === 401) {
-      // Token expired, try to refresh
-      const refreshed = await this.refreshToken();
-      if (!refreshed) {
-        await clearTokens();
-        throw new Error('Session expired. Please login again.');
+    if (authenticated) {
+      const token = await getAccessToken();
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
       }
-      throw new Error('RETRY_REQUEST');
     }
 
+    const response = await fetch(`${this.baseURL}${path}`, {
+      ...init,
+      headers,
+    });
+
+    if (response.status === 401 && authenticated) {
+      if (allowRetry && await this.refreshToken()) {
+        return this.request<T>(path, init, true, false);
+      }
+
+      await clearTokens();
+      throw new Error('Session expired. Please login again.');
+    }
+
+    return this.handleResponse<T>(response);
+  }
+
+  private async handleResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
       let errorMessage = 'Request failed';
       try {
@@ -298,35 +315,32 @@ class ApiService {
       throw new Error(errorMessage);
     }
 
-    return response.json();
+    return response.json() as Promise<T>;
   }
 
   // Auth APIs
   async signup(data: SignupRequest): Promise<OTPResponse> {
-    const response = await fetch(`${this.baseURL}/api/auth/signup`, {
+    return this.request<OTPResponse>('/api/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return this.handleResponse(response);
   }
 
   async login(data: LoginRequest): Promise<OTPResponse> {
-    const response = await fetch(`${this.baseURL}/api/auth/login`, {
+    return this.request<OTPResponse>('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    return this.handleResponse(response);
   }
 
   async verifyOTP(data: VerifyOTPRequest): Promise<TokenResponse> {
-    const response = await fetch(`${this.baseURL}/api/auth/verify-otp`, {
+    const result = await this.request<TokenResponse>('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
     });
-    const result = await this.handleResponse(response);
     
     // Store tokens and user data
     await setTokens(result.access_token, result.refresh_token);
@@ -359,21 +373,17 @@ class ApiService {
   }
 
   async getCurrentUser(): Promise<User> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/auth/me`, {
+    return this.request<User>('/api/auth/me', {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async resendOTP(mobile_number: string): Promise<OTPResponse> {
-    const response = await fetch(`${this.baseURL}/api/auth/resend-otp`, {
+    return this.request<OTPResponse>('/api/auth/resend-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mobile_number }),
     });
-    return this.handleResponse(response);
   }
 
   // Issue APIs
@@ -385,8 +395,6 @@ class ApiService {
     locality_id?: number;
     photos?: { uri: string; name: string; type: string }[];
   }): Promise<Issue> {
-    const token = await getAccessToken();
-    
     console.log('Creating issue with data:', {
       issue_type: data.issue_type,
       description: data.description,
@@ -394,7 +402,6 @@ class ApiService {
       longitude: data.longitude,
       locality_id: data.locality_id,
       photos_count: data.photos?.length || 0,
-      has_token: !!token,
       api_url: `${this.baseURL}/api/reports`,
     });
 
@@ -425,45 +432,11 @@ class ApiService {
     }
 
     try {
-      const response = await fetch(`${this.baseURL}/api/reports`, {
+      const result = await this.request<Issue>('/api/reports', {
         method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-          // Don't set Content-Type for FormData - it will be set automatically with boundary
-        },
         body: formData,
-      });
+      }, true);
 
-      console.log('Create issue response status:', response.status);
-      
-      if (!response.ok) {
-        const responseText = await response.text();
-        console.error('Create issue error response:', responseText);
-        
-        let errorMessage = `Request failed with status ${response.status}`;
-        try {
-          const error = JSON.parse(responseText);
-          if (error.detail) {
-            if (typeof error.detail === 'string') {
-              errorMessage = error.detail;
-            } else if (Array.isArray(error.detail)) {
-              errorMessage = error.detail.map((e: any) => 
-                `${e.loc ? e.loc.join('.') + ': ' : ''}${e.msg || JSON.stringify(e)}`
-              ).join(', ');
-            } else {
-              errorMessage = JSON.stringify(error.detail);
-            }
-          } else {
-            errorMessage = JSON.stringify(error);
-          }
-        } catch (e) {
-          errorMessage = responseText || errorMessage;
-        }
-        
-        throw new Error(errorMessage);
-      }
-
-      const result = await response.json();
       console.log('Issue created successfully:', result.id);
       return result;
     } catch (error) {
@@ -478,31 +451,23 @@ class ApiService {
     issue_type?: string;
     status?: string;
   }): Promise<IssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
     if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
     if (params?.status) queryParams.append('status', params.status);
 
-    const response = await fetch(
-      `${this.baseURL}/api/reports?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<IssueListResponse>(
+      `/api/reports?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-    return this.handleResponse(response);
   }
 
   async getIssue(issueId: number): Promise<Issue> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/reports/${issueId}`, {
+    return this.request<Issue>(`/api/reports/${issueId}`, {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async getMapIssues(params: {
@@ -512,8 +477,6 @@ class ApiService {
     issue_type?: string;
     status?: string;
   }): Promise<Issue[]> {
-    const headers = await this.getAuthHeaders();
-    
     const radius = params.radius ?? 50; // Default 50km radius
     
     const queryParams = new URLSearchParams();
@@ -523,25 +486,18 @@ class ApiService {
     if (params.issue_type) queryParams.append('issue_type', params.issue_type);
     if (params.status) queryParams.append('status', params.status);
     
-    const response = await fetch(
-      `${this.baseURL}/api/reports/map?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<Issue[]>(
+      `/api/reports/map?${queryParams.toString()}`,
+      { method: 'GET' },
     );
-    return this.handleResponse(response);
   }
 
   // ==================== Representative (Parshad/Pradhan) APIs ====================
 
   async getRepresentativeDashboard(): Promise<RepresentativeDashboardStats> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/parshad/dashboard`, {
+    return this.request<RepresentativeDashboardStats>('/api/parshad/dashboard', {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async getRepresentativeIssues(params?: {
@@ -550,100 +506,73 @@ class ApiService {
     issue_type?: string;
     status?: string;
   }): Promise<RepresentativeIssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
     if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
     if (params?.status) queryParams.append('status', params.status);
 
-    const response = await fetch(
-      `${this.baseURL}/api/parshad/issues?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<RepresentativeIssueListResponse>(
+      `/api/parshad/issues?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-    return this.handleResponse(response);
   }
 
   async getRepresentativePendingIssues(params?: {
     page?: number;
     page_size?: number;
   }): Promise<RepresentativeIssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
-    const response = await fetch(
-      `${this.baseURL}/api/parshad/issues/pending?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<RepresentativeIssueListResponse>(
+      `/api/parshad/issues/pending?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-    return this.handleResponse(response);
   }
 
   async getRepresentativeInProgressIssues(params?: {
     page?: number;
     page_size?: number;
   }): Promise<RepresentativeIssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
-    const response = await fetch(
-      `${this.baseURL}/api/parshad/issues/in-progress?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<RepresentativeIssueListResponse>(
+      `/api/parshad/issues/in-progress?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-    return this.handleResponse(response);
   }
 
   async getRepresentativeIssueDetail(issueId: number): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}`, {
+    return this.request<RepresentativeIssue>(`/api/parshad/issues/${issueId}`, {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async acknowledgeIssue(issueId: number): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/acknowledge`, {
+    return this.request<RepresentativeIssue>(`/api/parshad/issues/${issueId}/acknowledge`, {
       method: 'POST',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async startWorkOnIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
-    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/start-work${queryParams}`, {
+    return this.request<RepresentativeIssue>(`/api/parshad/issues/${issueId}/start-work${queryParams}`, {
       method: 'POST',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async completeIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
-    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/complete${queryParams}`, {
+    return this.request<RepresentativeIssue>(`/api/parshad/issues/${issueId}/complete${queryParams}`, {
       method: 'POST',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async updateIssueWithPhotos(data: {
@@ -652,10 +581,8 @@ class ApiService {
     progress_notes?: string;
     photos?: { uri: string; name: string; type: string }[];
   }): Promise<RepresentativeIssue> {
-    const token = await getAccessToken();
-    
     const formData = new FormData();
-    formData.append('new_status', data.new_status);
+    formData.append('status', data.new_status);
     if (data.progress_notes) {
       formData.append('progress_notes', data.progress_notes);
     }
@@ -671,65 +598,42 @@ class ApiService {
       });
     }
 
-    const response = await fetch(
-      `${this.baseURL}/api/parshad/issues/${data.issueId}/update-with-photos`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': token ? `Bearer ${token}` : '',
-        },
-        body: formData,
-      }
+    return this.request<RepresentativeIssue>(
+      `/api/parshad/issues/${data.issueId}/update-with-photos`,
+      { method: 'POST', body: formData },
+      true,
     );
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
-      throw new Error(error.detail || 'Failed to update issue');
-    }
-
-    return response.json();
   }
 
   // Representative Review Issue (new flow)
   async reviewIssue(issueId: number, notes?: string): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
-    const response = await fetch(`${this.baseURL}/api/parshad/issues/${issueId}/review${queryParams}`, {
+    return this.request<RepresentativeIssue>(`/api/parshad/issues/${issueId}/review${queryParams}`, {
       method: 'POST',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async getRepresentativePendingReviewIssues(params?: {
     page?: number;
     page_size?: number;
   }): Promise<RepresentativeIssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
 
-    const response = await fetch(
-      `${this.baseURL}/api/parshad/issues/pending-review?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<RepresentativeIssueListResponse>(
+      `/api/parshad/issues/pending-review?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-    return this.handleResponse(response);
   }
 
   // ==================== PWD Worker APIs ====================
 
   async getPWDWorkerDashboard(): Promise<PWDWorkerDashboardStats> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/pwd/dashboard/worker`, {
+    return this.request<PWDWorkerDashboardStats>('/api/pwd/dashboard/worker', {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async getPWDWorkerIssues(params?: {
@@ -738,42 +642,30 @@ class ApiService {
     issue_type?: string;
     filter_type?: 'pending' | 'in_progress' | 'completed';
   }): Promise<RepresentativeIssueListResponse> {
-    const headers = await this.getAuthHeaders();
-    
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
     if (params?.issue_type) queryParams.append('issue_type', params.issue_type);
     if (params?.filter_type) queryParams.append('filter_type', params.filter_type);
 
-    const response = await fetch(
-      `${this.baseURL}/api/pwd/my-issues?${queryParams.toString()}`,
-      {
-        method: 'GET',
-        headers,
-      }
+    return this.request<RepresentativeIssueListResponse>(
+      `/api/pwd/my-issues?${queryParams.toString()}`,
+      { method: 'GET' },
+      true,
     );
-
-    return this.handleResponse(response);
   }
 
   async getPWDIssueDetail(issueId: number): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
-    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}`, {
+    return this.request<RepresentativeIssue>(`/api/pwd/issues/${issueId}`, {
       method: 'GET',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async pwdStartWork(issueId: number, notes?: string): Promise<RepresentativeIssue> {
-    const headers = await this.getAuthHeaders();
     const queryParams = notes ? `?notes=${encodeURIComponent(notes)}` : '';
-    const response = await fetch(`${this.baseURL}/api/pwd/issues/${issueId}/start-work${queryParams}`, {
+    return this.request<RepresentativeIssue>(`/api/pwd/issues/${issueId}/start-work${queryParams}`, {
       method: 'POST',
-      headers,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   async pwdCompleteWork(data: {
@@ -781,7 +673,6 @@ class ApiService {
     description: string;
     photo: { uri: string; type: string; name: string };
   }): Promise<RepresentativeIssue> {
-    const token = await getAccessToken();
     const formData = new FormData();
     formData.append('description', data.description);
     formData.append('photo', {
@@ -790,15 +681,10 @@ class ApiService {
       name: data.photo.name,
     } as unknown as Blob);
 
-    const response = await fetch(`${this.baseURL}/api/pwd/issues/${data.issueId}/complete-work`, {
+    return this.request<RepresentativeIssue>(`/api/pwd/issues/${data.issueId}/complete-work`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        // Note: Don't set Content-Type for FormData, browser/RN will set it with boundary
-      },
       body: formData,
-    });
-    return this.handleResponse(response);
+    }, true);
   }
 
   // ==================== Locality APIs (Public) ====================
@@ -811,23 +697,17 @@ class ApiService {
     if (params?.type) queryParams.append('type', params.type);
     if (params?.search) queryParams.append('search', params.search);
 
-    const response = await fetch(
-      `${this.baseURL}/api/reports/localities/all?${queryParams.toString()}`,
-      {
-        method: 'GET',
-      }
+    return this.request<LocalityListPublicResponse>(
+      `/api/reports/localities/all?${queryParams.toString()}`,
+      { method: 'GET' },
     );
-    return this.handleResponse(response);
   }
 
   async getLocality(localityId: number): Promise<LocalityPublicResponse> {
-    const response = await fetch(
-      `${this.baseURL}/api/reports/localities/${localityId}`,
-      {
-        method: 'GET',
-      }
+    return this.request<LocalityPublicResponse>(
+      `/api/reports/localities/${localityId}`,
+      { method: 'GET' },
     );
-    return this.handleResponse(response);
   }
 
   // Legacy method aliases for backward compatibility

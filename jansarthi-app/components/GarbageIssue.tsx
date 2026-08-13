@@ -61,8 +61,8 @@ const GarbageIssue: React.FC<GarbageIssueProps> = () => {
       setWardError(null);
 
       // Validate form
-      if (!description.trim()) {
-        setError(language === "hi" ? "कृपया विवरण प्रदान करें" : "Please provide a description");
+      if (description.trim().length < 10) {
+        setError(language === "hi" ? "कृपया कम से कम 10 अक्षरों का विवरण दें" : "Please provide a description of at least 10 characters");
         return;
       }
 

@@ -8,35 +8,20 @@ import {
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect, useState } from "react";
+import { LogBox } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { GluestackUIProvider } from "@/components/ui/gluestack-ui-provider";
-import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import "@/global.css";
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
-function RootNavigator() {
-  const { isAuthenticated, isLoading } = useAuth();
-
-  // Show nothing while checking auth state
-  if (isLoading) {
-    return null;
-  }
-
-  return (
-    <Stack screenOptions={{ headerShown: false, animationDuration: 500 }}>
-      {!isAuthenticated ? (
-        // Auth screens - shown when not authenticated
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      ) : (
-        // App screens - shown when authenticated
-        <Stack.Screen name="(app)" options={{ headerShown: false }} />
-      )}
-    </Stack>
-  );
-}
+LogBox.ignoreLogs([
+  "SafeAreaView has been deprecated and will be removed in a future release.",
+]);
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState<boolean>(false);
@@ -77,12 +62,18 @@ export default function RootLayout() {
   }
 
   return (
-    <GluestackUIProvider mode="light">
-      <AuthProvider>
-        <LanguageProvider>
-          <RootNavigator />
-        </LanguageProvider>
-      </AuthProvider>
-    </GluestackUIProvider>
+    <SafeAreaProvider>
+      <GluestackUIProvider mode="light">
+        <AuthProvider>
+          <LanguageProvider>
+            <Stack screenOptions={{ headerShown: false, animationDuration: 500 }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="(app)" />
+            </Stack>
+          </LanguageProvider>
+        </AuthProvider>
+      </GluestackUIProvider>
+    </SafeAreaProvider>
   );
 }
