@@ -1,88 +1,9 @@
-module.exports = {
-  expo: {
-    name: "jansarthi",
-    slug: "jansarthi",
-    version: "1.0.0",
-    orientation: "portrait",
-    icon: "./assets/images/icon.png",
-    scheme: "jansarthi",
-    userInterfaceStyle: "automatic",
-    newArchEnabled: true,
-    ios: {
-      supportsTablet: true,
-      bundleIdentifier: "com.rustedshader.jansarthi",
-    },
-    android: {
-      adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
-        foregroundImage: "./assets/images/android-icon-foreground.png",
-        backgroundImage: "./assets/images/android-icon-background.png",
-        monochromeImage: "./assets/images/android-icon-monochrome.png",
-      },
-      edgeToEdgeEnabled: true,
-      predictiveBackGestureEnabled: false,
-      permissions: [
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.CAMERA",
-      ],
-      package: "com.rustedshader.jansarthi",
-    },
-    web: {
-      output: "static",
-      favicon: "./assets/images/favicon.png",
-    },
-    plugins: [
-      "expo-router",
-      [
-        "expo-location",
-        {
-          locationAlwaysAndWhenInUsePermission:
-            "Allow Jansarthi to use your location to help you report issues in your area.",
-          locationWhenInUsePermission:
-            "Allow Jansarthi to use your location to help you report issues in your area.",
-          isAndroidBackgroundLocationEnabled: false,
-          isAndroidForegroundServiceEnabled: false,
-        },
-      ],
-      [
-        "expo-camera",
-        {
-          cameraPermission:
-            "Allow $(PRODUCT_NAME) to access your camera to capture photos of issues.",
-          microphonePermission:
-            "Allow $(PRODUCT_NAME) to access your microphone for video recording.",
-          recordAudioAndroid: false,
-        },
-      ],
-      [
-        "expo-splash-screen",
-        {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 200,
-          resizeMode: "contain",
-          backgroundColor: "#ffffff",
-          dark: {
-            backgroundColor: "#000000",
-          },
-        },
-      ],
-      "@maplibre/maplibre-react-native",
-      "expo-secure-store",
-    ],
-    experiments: {
-      typedRoutes: true,
-      reactCompiler: true,
-    },
-    extra: {
-      router: {},
-      eas: {
-        projectId: "d1bcfd05-3aa1-4686-9f29-412179946708",
-      },
-      // Environment variables accessible via expo-constants
-      apiBaseUrl:
-        process.env.EXPO_PUBLIC_API_URL ||
-        "https://api.jansarthi.shubhang.dev",
-    },
+module.exports = ({ config }) => ({
+  ...config,
+  extra: {
+    ...config.extra,
+    apiBaseUrl:
+      process.env.EXPO_PUBLIC_API_URL ||
+      "https://api.jansarthi.shubhang.dev",
   },
-};
+});
