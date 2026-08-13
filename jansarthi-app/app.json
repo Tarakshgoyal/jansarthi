@@ -2,7 +2,7 @@
   "expo": {
     "name": "Jansarthi",
     "slug": "jansarthi",
-    "version": "1.0.2",
+    "version": "1.0.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "jansarthi",
