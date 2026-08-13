@@ -3,7 +3,6 @@ import { Heading } from "@/components/ui/heading";
 import { HStack } from "@/components/ui/hstack";
 import { Text } from "@/components/ui/text";
 import { VStack } from "@/components/ui/vstack";
-import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import * as Location from "expo-location";
 import { useRouter } from "expo-router";
@@ -13,7 +12,6 @@ import { Pressable, View } from "react-native";
 
 export const Header = () => {
   const { t, getText } = useLanguage();
-  const { isAuthenticated } = useAuth();
   const router = useRouter();
   const [location, setLocation] = useState<string>("");
   const [isLoadingLocation, setIsLoadingLocation] = useState<boolean>(true);
@@ -35,10 +33,15 @@ export const Header = () => {
           return;
         }
 
-        // Get current position
-        const currentLocation = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
+        // Prefer a recent cached fix so returning to the menu does not force a new GPS lookup.
+        const currentLocation =
+          (await Location.getLastKnownPositionAsync({
+            maxAge: 5 * 60 * 1000,
+            requiredAccuracy: 5000,
+          })) ??
+          (await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          }));
 
         // Reverse geocode to get address
         const address = await Location.reverseGeocodeAsync({
@@ -60,7 +63,7 @@ export const Header = () => {
           setLocation(getText(t.location.unavailable));
         }
       } catch (error) {
-        console.error("Error getting location:", error);
+        console.warn("Location unavailable:", error);
         setLocation(getText(t.location.error));
       } finally {
         setIsLoadingLocation(false);
