@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "jansarthi",
+    "name": "Jansarthi",
     "slug": "jansarthi",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "jansarthi",
@@ -75,7 +75,9 @@
         }
       ],
       "@maplibre/maplibre-react-native",
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true,
