@@ -6,7 +6,7 @@ software is required.
 
 ## Installation
 
-1. Download `Jansarthi-Android-1.0.2.apk` on the Android phone.
+1. Download `Jansarthi-Android-1.0.3.apk` on the Android phone.
 2. Open the downloaded file and allow installation from that source if Android asks.
 3. Tap **Install**, then open **Jansarthi**.
 4. Allow location and camera access when prompted so reports can include their
