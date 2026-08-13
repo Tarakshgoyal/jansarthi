@@ -72,10 +72,16 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
                 locality_name=locality_name,
             )
     
+    storage_service = None
+    photo_urls = []
+    if issue.photos:
+        storage_service = get_storage_service()
+        photo_urls = [storage_service.get_file_url(photo.photo_url) for photo in issue.photos]
+
     # Get completion photo URL if exists
     completion_photo_url = None
     if issue.completion_photo_url:
-        storage_service = get_storage_service()
+        storage_service = storage_service or get_storage_service()
         completion_photo_url = storage_service.get_file_url(issue.completion_photo_url)
     
     # Get completed by name
@@ -106,6 +112,7 @@ def build_issue_response(issue: Issue, session: Session) -> AdminIssueResponse:
         created_at=issue.created_at,
         updated_at=issue.updated_at,
         photo_count=len(issue.photos),
+        photos=photo_urls,
     )
 
 
@@ -553,26 +560,27 @@ async def pwd_complete_work(
             detail="Invalid file type. Only JPEG, PNG, and WebP images are allowed."
         )
     
+    content = await photo.read()
+    if len(content) > settings.max_file_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Photo exceeds maximum size of {settings.max_file_size / (1024 * 1024)}MB",
+        )
+
     # Upload completion photo to storage
+    object_name = None
     try:
         storage_service = get_storage_service()
-        content = await photo.read()
-        
-        # Upload to MinIO with completion prefix
         object_name = storage_service.upload_file(
             file_data=content,
             filename=f"completion_{issue_id}_{photo.filename or 'image.jpg'}",
             content_type=photo.content_type or "image/jpeg",
         )
-        
-        # Get presigned URL for the uploaded photo
-        completion_photo_url = storage_service.get_file_url(object_name)
-        
-    except Exception as e:
+    except Exception as error:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to upload completion photo: {str(e)}"
-        )
+            detail="Failed to upload completion photo. Please try again.",
+        ) from error
     
     # Update issue with completion data
     issue.status = IssueStatus.PWD_COMPLETED
@@ -590,9 +598,18 @@ async def pwd_complete_work(
     else:
         issue.progress_notes = completion_note
     
-    session.add(issue)
-    session.commit()
-    session.refresh(issue)
+    try:
+        session.add(issue)
+        session.commit()
+        session.refresh(issue)
+    except Exception as error:
+        session.rollback()
+        if object_name:
+            storage_service.delete_file(object_name)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to save work completion. Please try again.",
+        ) from error
     
     return build_issue_response(issue, session)
 

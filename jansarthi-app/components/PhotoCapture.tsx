@@ -128,6 +128,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
           </Text>
         </VStack>
         <Button
+          testID="camera-permission"
           action="primary"
           size="md"
           onPress={requestPermission}
@@ -186,6 +187,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
       {/* Add Photo Button */}
       {photos.length < maxPhotos && (
         <Button
+          testID="report-camera-open"
           action="secondary"
           variant="outline"
           size="md"
@@ -241,6 +243,7 @@ const PhotoCapture: React.FC<PhotoCaptureProps> = ({
 
                 {/* Capture Button */}
                 <TouchableOpacity
+                  testID="report-camera-capture"
                   onPress={takePicture}
                   className="w-20 h-20 rounded-full border-4 border-white bg-white/30 items-center justify-center"
                   activeOpacity={0.7}

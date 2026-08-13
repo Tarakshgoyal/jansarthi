@@ -1,0 +1,29 @@
+{
+	admin off
+}
+
+api.jansarthi.shubhang.dev {
+	encode zstd gzip
+
+	request_body {
+		max_size 35MB
+	}
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "no-referrer"
+		-Server
+	}
+
+	reverse_proxy api:8000
+
+	log {
+		output stdout
+		format json
+	}
+}
+
+jansarthi.shubhang.dev {
+	respond 404
+}

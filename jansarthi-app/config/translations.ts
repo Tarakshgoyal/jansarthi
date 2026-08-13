@@ -107,6 +107,7 @@ export interface Translations {
 
   // Common Actions
   actions: {
+    error: Translation;
     submit: Translation;
     cancel: Translation;
     edit: Translation;
@@ -648,6 +649,10 @@ export const translations: Translations = {
 
   // Common Actions
   actions: {
+    error: {
+      en: "Error",
+      hi: "त्रुटि",
+    },
     submit: {
       en: "Submit",
       hi: "सबमिट करें",

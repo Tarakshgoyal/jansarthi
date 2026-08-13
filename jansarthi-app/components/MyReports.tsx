@@ -72,13 +72,6 @@ const StatusTracker: React.FC<StatusTrackerProps> = ({ currentStatus, createdAt,
 
   return (
     <View className="mt-4 mb-2">
-      {/* Debug info - remove after testing */}
-      {__DEV__ && (
-        <Text className="text-xs text-gray-500 mb-2">
-          Status: {currentStatus} | Locality: {localityType || 'N/A'} | Stage: {currentStageIndex}
-        </Text>
-      )}
-      
       {/* Vertical Status Tracker */}
       <VStack space="xs">
         {stages.map((stage, index) => {
@@ -308,6 +301,7 @@ const MyReports: React.FC<MyReportsProps> = () => {
           <VStack space="md">
             {issues.map((issue) => (
               <TouchableOpacity
+                testID={`citizen-report-${issue.id}`}
                 key={issue.id}
                 onPress={() => handleIssuePress(issue.id)}
                 activeOpacity={0.7}

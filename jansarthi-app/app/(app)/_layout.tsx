@@ -2,10 +2,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Redirect, Stack } from 'expo-router';
 
 export default function AppLayout() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isInitializing } = useAuth();
 
   // Wait for auth state to be determined
-  if (isLoading) {
+  if (isInitializing) {
     return null;
   }
 

@@ -11,7 +11,6 @@ import { CameraType, CameraView, useCameraPermissions } from "expo-camera";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   AlertCircle,
-  ArrowLeft,
   Camera,
   CheckCircle,
   Clock,
@@ -312,18 +311,7 @@ export const ParshadIssueDetail: React.FC = () => {
 
   if (error || !issue) {
     return (
-      <View className="flex-1 bg-background-50">
-        <View className="bg-brand-500 px-6 pt-16 pb-6">
-          <HStack className="items-center" space="md">
-            <Pressable onPress={() => router.back()} className="p-2">
-              <ArrowLeft size={24} color="#fff" />
-            </Pressable>
-            <Heading size="lg" className="text-typography-white">
-              {getText(t.parshad.issueDetail.title)}
-            </Heading>
-          </HStack>
-        </View>
-        <View className="flex-1 justify-center items-center p-6">
+      <View className="flex-1 justify-center items-center p-6 bg-background-50">
           <AlertCircle size={48} className="text-error-500 mb-4" />
           <Text className="text-error-700 text-center">{error || "Issue not found"}</Text>
           <Pressable
@@ -331,8 +319,7 @@ export const ParshadIssueDetail: React.FC = () => {
             className="mt-4 bg-primary-500 rounded-lg px-6 py-3"
           >
             <Text className="text-typography-white">{getText(t.actions.tryAgain)}</Text>
-          </Pressable>
-        </View>
+        </Pressable>
       </View>
     );
   }
@@ -346,21 +333,9 @@ export const ParshadIssueDetail: React.FC = () => {
 
   return (
     <View className="flex-1 bg-background-50">
-      {/* Header */}
-      <View className="bg-brand-500 px-6 pt-16 pb-6">
-        <HStack className="items-center" space="md">
-          <Pressable onPress={() => router.back()} className="p-2">
-            <ArrowLeft size={24} color="#fff" />
-          </Pressable>
-          <Heading size="lg" className="text-typography-white flex-1">
-            {getText(t.parshad.issueDetail.title)}
-          </Heading>
-        </HStack>
-      </View>
-
       <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 100 }}>
         {/* Issue Type Card */}
-        <View className="px-4 -mt-4">
+        <View className="px-4 mt-4">
           <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100">
             <HStack className="items-center" space="md">
               <Box className="bg-primary-50 rounded-xl p-4">
@@ -507,6 +482,7 @@ export const ParshadIssueDetail: React.FC = () => {
         <View className="absolute bottom-0 left-0 right-0 bg-background-0 border-t border-outline-100 px-4 py-4 pb-8">
           {canAcknowledge && (
             <Button
+              testID="representative-acknowledge"
               onPress={handleAcknowledge}
               isDisabled={isActionLoading}
               className="bg-info-600"
@@ -527,6 +503,7 @@ export const ParshadIssueDetail: React.FC = () => {
 
           {canReview && (
             <Button
+              testID="representative-review"
               onPress={handleReviewAndClose}
               isDisabled={isActionLoading}
               className="bg-success-600"

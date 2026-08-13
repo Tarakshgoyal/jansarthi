@@ -13,11 +13,14 @@
         "buildType": "apk"
       },
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://jansarthi.rustedshader.com"
+        "EXPO_PUBLIC_API_URL": "https://api.jansarthi.shubhang.dev"
       }
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.jansarthi.shubhang.dev"
+      }
     }
   },
   "submit": {

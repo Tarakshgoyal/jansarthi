@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { View } from 'react-native';
+import { Keyboard, TouchableWithoutFeedback, View } from 'react-native';
 
 export default function SignupScreen() {
   const { signup, isLoading, error, clearError } = useAuth();
@@ -68,6 +68,7 @@ export default function SignupScreen() {
   };
 
   return (
+    <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
     <View className="flex-1 bg-brand-500">
       {/* Header Section with Brand Color */}
       <View className="pt-16 pb-8 px-6">
@@ -93,6 +94,7 @@ export default function SignupScreen() {
           <FormControl isInvalid={!!localError || !!error}>
             <VStack space="md">
               <Input
+                testID="signup-name"
                 variant="outline"
                 size="lg"
                 className="bg-background-50 border-outline-200"
@@ -113,6 +115,7 @@ export default function SignupScreen() {
               <View className="flex-row">
                 
                 <Input
+                  testID="signup-phone"
                   size="lg"
                   className="flex-1 bg-background-50"
                 >
@@ -146,6 +149,7 @@ export default function SignupScreen() {
 
           <VStack space="md">
             <Button
+              testID="signup-submit"
               size="lg"
               onPress={handleSignup}
               isDisabled={isLoading}
@@ -161,6 +165,7 @@ export default function SignupScreen() {
                 {getText(t.auth.signup.alreadyHaveAccount)}{' '}
               </Text>
               <Button
+                testID="go-login"
                 variant="link"
                 size="sm"
                 onPress={() => router.back()}
@@ -174,5 +179,6 @@ export default function SignupScreen() {
         </VStack>
       </View>
     </View>
+    </TouchableWithoutFeedback>
   );
 }

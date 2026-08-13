@@ -97,6 +97,7 @@ export const Header = () => {
             <Bell size={20} className="text-typography-white" />
           </Pressable>
           <Pressable
+            testID="profile-button"
             onPress={handleProfilePress}
             className="border border-white/20 rounded-full p-3 bg-white/10 active:opacity-70"
             style={{ minWidth: 44, minHeight: 44 }}

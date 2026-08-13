@@ -137,7 +137,7 @@ const IssueCard: React.FC<IssueCardProps> = ({ issue, onPress, getText, t }) => 
   const statusColorClass = getStatusColor(issue.status);
 
   return (
-    <Pressable onPress={onPress}>
+    <Pressable testID={`representative-issue-${issue.id}`} onPress={onPress}>
       <Box className="bg-background-0 rounded-2xl p-4 border border-outline-100 mb-3">
         <HStack className="items-start justify-between">
           <HStack className="items-center flex-1" space="md">
@@ -272,6 +272,7 @@ export const ParshadDashboard: React.FC = () => {
           <HStack space="md" className="items-center">
             <LanguageSwitcher />
             <Pressable
+              testID="profile-button"
               onPress={() => router.push('/(app)/profile')}
               className="border border-white/20 rounded-full p-3 bg-white/10 active:opacity-70"
               style={{ minWidth: 44, minHeight: 44 }}
@@ -331,6 +332,7 @@ export const ParshadDashboard: React.FC = () => {
             <HStack space="sm">
               {tabs.map((tab) => (
                 <Pressable
+                  testID={`representative-tab-${tab.key}`}
                   key={tab.key}
                   onPress={() => setActiveTab(tab.key)}
                   className={`px-4 py-2 rounded-full ${

@@ -7,15 +7,18 @@ interface IssueTypeCardProps {
   icon: LucideIcon;
   label: string;
   onPress: () => void;
+  testID?: string;
 }
 
 export const IssueTypeCard = ({
   icon: Icon,
   label,
   onPress,
+  testID,
 }: IssueTypeCardProps) => {
   return (
     <Pressable
+      testID={testID}
       onPress={onPress}
       className="bg-background-50 rounded-xl p-6 border border-outline-100 active:bg-background-100 active:border-brand-500"
     >

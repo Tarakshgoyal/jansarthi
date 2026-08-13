@@ -17,8 +17,11 @@ settings = get_settings()
 # access to the values within the .ini file in use.
 config = context.config
 
-# Set the database URL from config
-config.set_main_option("sqlalchemy.url", settings.database_url)
+# Alembic must use Neon's direct URL rather than its transaction pooler. Escape
+# percent signs because ConfigParser treats them as interpolation markers.
+config.set_main_option(
+    "sqlalchemy.url", settings.migration_database_url.replace("%", "%%")
+)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

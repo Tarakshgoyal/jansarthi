@@ -1,0 +1,60 @@
+appId: com.rustedshader.jansarthi
+name: Representative reviews and closes completed work
+---
+- launchApp
+- tapOn:
+    id: login-phone
+- inputText: 9000000002
+- tapOn: Welcome Back
+- tapOn:
+    id: login-submit
+- tapOn:
+    id: otp-digit-0
+- inputText: 9
+- tapOn:
+    id: otp-digit-1
+- inputText: 9
+- tapOn:
+    id: otp-digit-2
+- inputText: 9
+- tapOn:
+    id: otp-digit-3
+- inputText: 9
+- tapOn:
+    id: otp-digit-4
+- inputText: 9
+- tapOn:
+    id: otp-digit-5
+- inputText: 9
+- tapOn:
+    id: otp-submit
+- extendedWaitUntil:
+    visible:
+      id: representative-tab-pending_review
+    timeout: 30000
+- tapOn:
+    id: representative-tab-pending_review
+- extendedWaitUntil:
+    visible:
+      id: representative-issue-1
+    timeout: 15000
+- tapOn:
+    id: representative-issue-1
+- tapOn:
+    id: representative-review
+- tapOn:
+    point: 68%,56%
+- extendedWaitUntil:
+    visible: Issue has been resolved and closed
+    timeout: 15000
+- tapOn: OK
+- tapOn:
+    id: back-button
+- tapOn:
+    id: profile-button
+- tapOn:
+    id: logout-button
+- tapOn:
+    point: 68%,56%
+- assertVisible:
+    id: login-phone
