@@ -104,7 +104,6 @@ export default function LoginScreen() {
                       setLocalError('');
                       clearError();
                     }}
-                    autoFocus
                     className="text-typography-900"
                     maxLength={10}
                   />
@@ -117,9 +116,6 @@ export default function LoginScreen() {
               )}
             </VStack>
           </FormControl>
-
-          {/* Spacer to push button to bottom */}
-          <View className="flex-1" />
 
           <VStack space="md">
             <Button
