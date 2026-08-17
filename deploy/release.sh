@@ -9,8 +9,25 @@ fi
 cd /opt/jansarthi
 image="$1"
 candidate_env="$(mktemp)"
-trap 'rm -f "$candidate_env"' EXIT
+site_backup="$(mktemp)"
+site_config="/etc/caddy/sites/jansarthi.caddy"
+site_existed=false
+trap 'rm -f "$candidate_env" "$site_backup"' EXIT
 printf 'API_IMAGE=%s\n' "$image" >"$candidate_env"
+
+if [[ -f "$site_config" ]]; then
+  cp "$site_config" "$site_backup"
+  site_existed=true
+fi
+
+restore_caddy_config() {
+  if [[ "$site_existed" == true ]]; then
+    install -m 644 "$site_backup" "$site_config"
+  else
+    rm -f "$site_config"
+  fi
+  systemctl reload caddy || true
+}
 
 previous_image=""
 if [[ -f release.env ]]; then
@@ -38,6 +55,19 @@ if [[ "$ready" != true ]]; then
     docker compose --env-file release.env up -d api
   fi
   echo "Deployment failed readiness; previous API image restored." >&2
+  exit 1
+fi
+
+install -d -m 755 /etc/caddy/sites
+install -m 644 Caddyfile "$site_config"
+if ! caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+  restore_caddy_config
+  echo "Deployment failed Caddy validation; previous site configuration restored." >&2
+  exit 1
+fi
+if ! systemctl reload caddy; then
+  restore_caddy_config
+  echo "Deployment failed Caddy reload; previous site configuration restored." >&2
   exit 1
 fi
 
