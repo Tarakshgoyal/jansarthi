@@ -5,8 +5,8 @@ services:
     image: ${API_IMAGE:?API_IMAGE must be set}
     env_file:
       - /etc/jansarthi/backend.env
-    expose:
-      - "8000"
+    ports:
+      - "127.0.0.1:8000:8000"
     restart: unless-stopped
     init: true
     read_only: true
@@ -30,30 +30,3 @@ services:
       options:
         max-size: 10m
         max-file: "3"
-
-  caddy:
-    image: caddy:2.10.2-alpine
-    depends_on:
-      api:
-        condition: service_healthy
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    restart: unless-stopped
-    security_opt:
-      - no-new-privileges:true
-    mem_limit: 96m
-    logging:
-      driver: json-file
-      options:
-        max-size: 10m
-        max-file: "3"
-
-volumes:
-  caddy_data:
-  caddy_config:
